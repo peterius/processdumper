@@ -1,0 +1,7 @@
+*.VC.db
+*.VC.opendb
+*.aps
+*.exe
+*.o
+*.obj
+*.pdb
