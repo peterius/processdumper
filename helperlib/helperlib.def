@@ -1,0 +1,8 @@
+LIBRARY   helperlib
+EXPORTS  
+   DLLIPCThread
+   OurLoadLibrary
+   OurGetProcAddress
+   logfileName
+   functionstohookfile
+   UnloadHelperLib

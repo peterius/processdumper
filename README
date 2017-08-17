@@ -1,0 +1,2 @@
+* Run it from an administrator console or it will quit with some unhelpful error.
+* From pretty early on, I started compiling the console application 64 bit.  So while it should work on 32 bit applications, it will likely be broken if compiled for 32 bit.

@@ -1,0 +1,8 @@
+LIBRARY helperlib32.dll
+EXPORTS  
+	DLLIPCThread
+	OurLoadLibrary
+    OurGetProcAddress
+    logfileName
+	functionstohookfile
+	UnloadHelperLib

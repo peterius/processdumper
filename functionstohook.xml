@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" someotherdata="软件“?>
+
+<!-- these values are guesses, maybe we should just match them up... maybe we will -->
+<value name="INVALID_SOCKET" value="0xffffffff"/>
+<type name="SOCKET" type="uint32_t"/>
+<type name="char" type="int8_t"/>
+<type name="wchar_t" type="int16_t"/>
+<type name="char *" type="pointer" basetype="char"/>
+<type name="wchar_t *" type="pointer" basetype="wchar_t"/>
+<type name="char[6]" type="array" basetype="char"/>
+<type name="struct sockaddr_in" type="struct">
+	<element name="sin_family" type="int16_t"/>
+	<element name="sin_port" type="uint16_t"/>
+	<element name="sin_addr" type="ip4_t"/>
+	<!-- what about IP6 ?!?! -->
+</type>
+<type name="struct sockaddr_in *" type="pointer" basetype="struct sockaddr_in"/>
+<type name="test_struct" type = "struct">
+	<element name="A" type = "uint32_t"/>
+	<element name="S" type="struct">
+		<element name="SA" type="uint16_t"/>
+		<element name="Sptr" type="pointer" basetype="char"/>
+	</element>
+</type>
+<!-- do WSA functions just call the other send/connect/etc., functions? -->
+<lib name="kernel32.dll">
+	<!-- experimental scoping -->
+	<type name="HANDLE" type="uint32_t"/>
+	<value name="INVALID_HANDLE_VALUE" value="0xffffffff"/>
+	<function name="CloseHandle">
+		<arg name="Handle" type="HANDLE"/>
+		<return type="bool"/>
+		<success return="equal" value="1"/>
+	</function>
+	<function name="CreateFileA">
+		<arg name="filename" type="char *"/>
+		<return type="HANDLE"/>
+		<success return="notequal" value="INVALID_HANDLE_VALUE"/>
+	</function>
+	<function name="CreateFileW">
+		<arg name="filename" type="wchar_t *"/>
+		<return type="HANDLE"/>
+		<success return="notequal" value="INVALID_HANDLE_VALUE"/>
+	</function>
+	<function name="ExitProcess">
+		<return type="uint32_t"/>
+	</function>
+</lib>
+<function lib="ws2_32.dll" name="connect" ordinal="4">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="name" type="struct sockaddr_in *">
+		<element name="sin_port"/>
+		<element name="sin_addr"/>
+	</arg>
+	<arg name="namelen" type="int32_t" log="0"/>
+	<return type="uint32_t"/>
+	<success return="equal" value="0"/>
+</function>
+<function lib="ws2_32.dll" name="accept" ordinal="1">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="name" type="struct sockaddr_in *" precall="false" postcall="true"/>
+	<return type="SOCKET"/>
+	<success return="notequal" value="INVALID_SOCKET"/>
+</function>
+<function lib="ws2_32.dll" name="send" ordinal="19">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="buffer" type="char *" size="len"/>
+	<arg name="len" type="uint32_t"/>
+	<return type="uint32_t"/>
+	<success return="notequal" value="SOCKET_ERROR"/>
+</function>
+<function lib="ws2_32.dll" name="recv" ordinal="16">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="buffer" type="char *" precall="false" postcall="true" size="return"/>
+	<arg name="len" type="uint32_t"/>
+	<return type="uint32_t">
+	<success return="notequal" value="SOCKET_ERROR"/>
+</function>
+<function lib="ws2_32.dll" name="socket" ordinal="23">
+	<return type="SOCKET"/>
+</function>
+<function lib="ws2_32.dll" name="closesocket" ordinal="3">
+	<arg name="socket" type="SOCKET"/>
+	<return type="uint32_t"/>
+</function>
