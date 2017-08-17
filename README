@@ -1,2 +1,17 @@
+* dirty, unfinished, exploratory code for analyzing software
 * Run it from an administrator console or it will quit with some unhelpful error.
 * From pretty early on, I started compiling the console application 64 bit.  So while it should work on 32 bit applications, it will likely be broken if compiled for 32 bit.
+* installing driver requires:
+
+	bcdedit -set TESTSIGNING ON
+	and reboot
+
+	and to turn it off bcdedit -set TESTSIGNING OFF
+
+	I think I used
+
+	MakeCert -r -pe -ss PrivateCertStore -n "CN=test.com(test)" testcert.cer
+
+	for the signing certificate and then set the test certificate in the driver project properties.  Pretty sure it's per-machine
+
+	makecert-test-certificate from msdn
