@@ -39,10 +39,10 @@ typedef int(*WSAStartupPtr)(WORD wVersionRequested, LPWSADATA lpWSAData);
 typedef int(*WSACleanupPtr)(void);
 typedef int(*WSAGetLastErrorPtr)(void);
 typedef int(*connectPtr)(SOCKET s, const struct sockaddr *name, int namelen);
-typedef u_short(*WSAAPI htonsPtr)(u_short hostshort);
+typedef u_short(*/*WSAAPI*/ htonsPtr)(u_short hostshort);
 typedef unsigned long(*inet_addrPtr)(const char *cp);
 typedef int(*closesocketPtr)(SOCKET s);
-typedef SOCKET(*WSAAPI socketPtr)(int af, int type, int protocol);
+typedef SOCKET(*/*WSAAPI*/ socketPtr)(int af, int type, int protocol);
 typedef int(*sendPtr)(SOCKET s, const char *buf, int len, int flags);
 
 LoadLibraryPtr OurLoadLibrary = (LoadLibraryPtr)0x6000000000000006;
@@ -74,6 +74,7 @@ CloseHandlePtr CloseHandle_0;
 GetLastErrorPtr GetLastError_0;
 Module32FirstWPtr Module32FirstW_0;
 Module32NextWPtr Module32NextW_0;
+ExitThreadPtr ExitThread_0;
 
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -101,13 +102,13 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 
 	ret = fix_imports();
 	if(ret < 0)
-		return ret;
+		ExitThread_0(ret);
 
 	if(port)
 	{
 		ret = setup_ipc_socket(port);
 		if(ret < 0)
-		{}//return ret;
+		{}// ExitThread_0(ret);
 		else
 		{
 			test_info();
@@ -122,7 +123,7 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 	}
 	catch(...)
 	{
-		return -1;
+		ExitThread_0(-1);
 	}
 	logPrintf(utf8("软件开始\n"));
 	logPrintf(utf8("PID %d Name: %s\n"), GetProcessId_0(GetCurrentProcess_0()), "UNHANDLED");
@@ -137,11 +138,12 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 	InitializeCriticalSection_0(&critsection);
 
 	if(allocate_hook_space() < 0)
-		return -1;
+		ExitThread_0(-1);
 	logPrintf("Hook space allocated\n");
 	if(hook_imports() < 0)
-		return -1;
+		ExitThread_0(-1);
 	
+	ExitThread_0(0);
 	return 0;
 }
 
@@ -152,6 +154,7 @@ DWORD WINAPI UnloadHelperLib(LPVOID param)
 
 	close_logging_file();
 
+	ExitThread_0(0);
 	return 0;
 }
 
@@ -280,6 +283,7 @@ int fix_imports(void)
 	ReadFile_0 = (ReadFilePtr)OurGetProcAddress(k32lib, "ReadFile");
 	SetFilePointer_0 = (SetFilePointerPtr)OurGetProcAddress(k32lib, "SetFilePointer");
 	WideCharToMultiByte_0 = (WideCharToMultiBytePtr)OurGetProcAddress(k32lib, "WideCharToMultiByte");
+	ExitThread_0 = (ExitThreadPtr)OurGetProcAddress(k32lib, "ExitThread");
 
 	stdlib = OurLoadLibrary(L"msvcrt.dll");
 	if(!stdlib)

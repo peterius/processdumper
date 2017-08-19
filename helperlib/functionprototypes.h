@@ -58,6 +58,7 @@ typedef DWORD (WINAPI * GetFileSizePtr)(HANDLE hFile, LPDWORD lpFileSizeHigh);
 typedef BOOL (WINAPI * ReadFilePtr)(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped);
 typedef DWORD(WINAPI * SetFilePointerPtr)(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod);
 typedef int ( * WideCharToMultiBytePtr)(UINT CodePage, DWORD dwFlags, LPCWSTR lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, LPCSTR lpDefaultChar, LPBOOL lpUsedDefaultChar);
+typedef VOID (WINAPI * ExitThreadPtr)(DWORD dwExitCode);
 
 extern fopenPtr _fopen;
 extern fclosePtr _fclose;
@@ -98,6 +99,7 @@ extern GetFileSizePtr GetFileSize_0;
 extern ReadFilePtr ReadFile_0;
 extern SetFilePointerPtr SetFilePointer_0;
 extern WideCharToMultiBytePtr WideCharToMultiByte_0;
+extern ExitThreadPtr ExitThread_0;
 
 void * memset_0(void *dest, int c, size_t count);
 void * memcpy_0(void *dest, const void *src, size_t count);
