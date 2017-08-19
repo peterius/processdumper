@@ -16,6 +16,7 @@
 
 typedef struct arg_spec
 {
+	char * arg_name;
 	unsigned long offset;
 	struct arg_spec * deref_type;			//could use union, but how do we make sure about the mask...
 	struct arg_spec * deref_len;
@@ -27,15 +28,24 @@ typedef struct arg_spec
 #define ARGSPECRETURN_VALUE				0x2000
 #define ARGSPECOFPRECALLINTEREST		0x4000
 #define ARGSPECOFPOSTCALLINTEREST		0x8000
-#define ARGSPECTYPEMASK					0x0fff
+#define ARGSPECLENRELATED				0x0800
+#define ARGSPECTYPEMASK					0x07ff
+
+#ifdef _WIN64
+typedef unsigned long long value_t;
+typedef long long svalue_t;
+#else
+typedef unsigned long value_t;
+typedef long svalue_t;
+#endif //_WIN64
 
 #ifdef _WIN64
 #define ARGSPECDEREFMASK		0xffffffffffff0000
-typedef unsigned long long argchecktype;
 #else
 #define ARGSPECDEREFMASK		0xffff0000
-typedef unsigned long argchecktype;
 #endif //_WIN64
+
+typedef value_t argchecktype;
 
 //base types
 
@@ -51,7 +61,7 @@ typedef unsigned long argchecktype;
 
 #define ARG_TYPE_STRUCT					9
 #define ARG_TYPE_STRUCT_ELEMENT			10
-#define ARG_TYPE_LEN					11
+//#define ARG_TYPE_LEN					11
 #define ARG_TYPE_CHARP					12
 #define ARG_TYPE_UCHARP					13
 #define ARG_TYPE_WCHARP					14

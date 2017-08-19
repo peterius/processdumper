@@ -20,6 +20,7 @@
 	<element name="S" type="struct">
 		<element name="SA" type="uint16_t"/>
 		<element name="Sptr" type="pointer" basetype="char"/>
+		<element name="next" type="pointer" basetype="test_struct"/>
 	</element>
 </type>
 <!-- do WSA functions just call the other send/connect/etc., functions? -->
@@ -73,7 +74,7 @@
 	<arg name="socket" type="SOCKET"/>
 	<arg name="buffer" type="char *" precall="false" postcall="true" size="return"/>
 	<arg name="len" type="uint32_t"/>
-	<return type="uint32_t">
+	<return type="uint32_t"/>
 	<success return="notequal" value="SOCKET_ERROR"/>
 </function>
 <function lib="ws2_32.dll" name="socket" ordinal="23">

@@ -6,9 +6,9 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *	but WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
- *	GNU General Public License for more details.
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+ *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
@@ -37,7 +37,7 @@ struct hooked_func * curhook_hfstruct;
 void * curhook_stackpointer;
 void * curhook_origret;
 void * curhook_stackandretval;
-unsigned long g_next_dispatch_length;
+value_t g_next_dispatch_length;
 
 int isofprecallinterest(argtypep arg);
 int isofpostcallinterest(argtypep arg);
@@ -57,7 +57,6 @@ void cleanup_hook(struct hooked_func * hfstruct);
 void hookfuncfunc(void * sp, unsigned long functiondispatch)
 {
 	//堆栈可以损失，不可以用
-	unsigned int i;
 	struct arg_spec * arg_spec;
 
 	EnterCriticalSection_0(&critsection);
@@ -168,6 +167,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%d\n", ((char *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((char *)p)[0];
 				else
 					logPrintf("CHAR: %d\n", ((char *)p)[0]);
 				break;
@@ -182,6 +183,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%u\n", ((unsigned char *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((unsigned char *)p)[0];
 				else
 					logPrintf("UCHAR: %u\n", ((unsigned char *)p)[0]);
 				break;
@@ -196,6 +199,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%d\n", ((short *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((short *)p)[0];
 				else
 					logPrintf("SHORT: %d\n", ((short *)p)[0]);
 				break;
@@ -210,6 +215,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%u\n", ((unsigned short *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((unsigned short  *)p)[0];
 				else
 					logPrintf("USHORT: %u\n", ((unsigned short *)p)[0]);
 				break;
@@ -253,6 +260,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%d\n", ((long *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((long *)p)[0];
 				else
 					logPrintf("LONG: %d\n", ((long *)p)[0]);
 				break;
@@ -267,6 +276,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%u\n", ((unsigned long *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((unsigned long *)p)[0];
 				else
 					logPrintf("ULONG: %u\n", ((unsigned long *)p)[0]);
 				break;
@@ -283,6 +294,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%u\n", ((unsigned long long *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((unsigned long long *)p)[0];
 				else
 					logPrintf("ULONGLONG: %u\n", ((unsigned long long *)p)[0]);
 				break;
@@ -304,6 +317,8 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%08x%08x\n", PRINTARG64(temp));
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((unsigned long long *)p)[0];
 				else
 				{
 					temp = ((unsigned long long *)p)[0];
@@ -320,12 +335,11 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("%08x\n", ((unsigned long *)p)[i]);
 					g_next_dispatch_length = 0;
 				}
+				else if((argchecktype)arg->deref_type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)((unsigned long long *)p)[0];
 				else
 					logPrintf("PTR: %08x\n", ((unsigned long *)p)[0]);
 #endif //_WIN64
-				break;
-			case ARG_TYPE_LEN:
-				g_next_dispatch_length = *(unsigned long *)p;
 				break;
 			// should really distinguish between these two somehow, but whatever:
 			case ARG_TYPE_CHARP:
@@ -647,8 +661,6 @@ struct hooked_func * shouldwehook(char * libname, unsigned short ordinal, char *
 //造空间
 int allocate_hook_space(void)
 {
-	unsigned int i;
-
 	hookspace_size = 0x10000;
 	hookspace = (char *)VirtualAlloc_0(NULL, hookspace_size, MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 	if(!hookspace)
@@ -738,12 +750,14 @@ void cleanup_hook(struct hooked_func * hfstruct)
 
 	if(hfstruct->origname)
 		free_0(hfstruct->origname);
-	if(hfstruct->origlibname && hfstruct->origlibname[0] != '*')			//don't free the static wildname
+	if(hfstruct->origlibname)
 		free_0(hfstruct->origlibname);
 	arg_spec = hfstruct->arg;
 	while(arg_spec)
 	{
 		as = arg_spec->next_spec;
+		if(arg_spec->arg_name)
+			free_0(arg_spec->arg_name);
 		free_0(arg_spec);
 		arg_spec = as;
 	}
