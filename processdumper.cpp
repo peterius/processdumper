@@ -6,9 +6,9 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *	but WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
- *	GNU General Public License for more details.
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+ *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
@@ -751,14 +751,18 @@ int filterException(int code, PEXCEPTION_POINTERS ex)
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 
+// FIXME FIXME FIXME 64
 void dump_current_module(HANDLE process, char * name)
 {
 	HANDLE m;
 	HMODULE h;
 	DWORD bytes_written;;
 	MODULEINFO modinfo;
-	DWORD addr, r;
+	char * addr, r;
+	//BOOL wow64;
 	char * outname = (char *)calloc(strlen(name) + 6, sizeof(char));
+
+	//IsWow64Process(process, &wow64);
 
 	h = GetModuleHandleA(name);
 	GetModuleInformation(process, h, &modinfo, sizeof(MODULEINFO));
@@ -766,14 +770,14 @@ void dump_current_module(HANDLE process, char * name)
 	//curent directory, does this work FIXME?
 	sprintf(outname, "inmem%s", name);
 	m = CreateFileA(outname, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-	for(addr = (uint32_t)h; addr < (uint32_t)h + modinfo.SizeOfImage; addr += 1024)
+	for(addr = (char *)h; addr < (char *)h + modinfo.SizeOfImage; addr += 1024)
 	{
 		if(!WriteFile(m, (char *)addr, 1024, &bytes_written, NULL))
 			printf("Error: %d\n", GetLastError());
 		//printf("Bytes Written: %d\n", bytes_written);
 	}
 	addr -= 1024;
-	r = (uint32_t)h + modinfo.SizeOfImage - addr;
+	r = (char *)h + modinfo.SizeOfImage - addr;
 	if(r)
 		WriteFile(m, (char *)addr, r, &bytes_written, NULL);
 	CloseHandle(m);
@@ -901,7 +905,7 @@ int enummodulepulldown(HANDLE processH, char * outputdirname)
 			{
 				fprintf(stderr, "exception!\n");
 			}
-		proc_alloc_dump_fail:
+proc_alloc_dump_fail:
 			free(outname);
 		}
 	}
@@ -959,7 +963,7 @@ void MakeLibrariesExecutable(void)
 BOOL EnableDebugPrivilege(BOOL bEnable)
 {
 	HANDLE hToken = nullptr;
-	LUID luid, luid2, luid3, luid4, luid5, luid6, luid7, luid8, luid9, luid10;
+	LUID luid, luid2;//, luid3, luid4, luid5, luid6, luid7, luid8, luid9, luid10;
 
 	if(!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken)) return FALSE;
 	if(!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) return FALSE;
@@ -1371,6 +1375,11 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 		return -1;
 	}
 
+	WaitForSingleObject(thread, INFINITE);
+	CloseHandle(thread);
+
+	printf("Injection procedure complete\n");
+
 	CloseHandle(pH);
 	return 0;
 }
@@ -1394,7 +1403,11 @@ int uninjectProcess(HANDLE pH)
 		CloseHandle(pH);
 		return -1;
 	}
-	//we want to wait on the remote thread... 
+	
+	WaitForSingleObject(thread, INFINITE);
+	CloseHandle(thread);
+
+	printf("Uninjection procedure complete, unmapping memory...\n");
 
 	IsWow64Process(pH, &wow64);
 
