@@ -6,9 +6,9 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *	but WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
- *	GNU General Public License for more details.
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+ *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
@@ -115,7 +115,6 @@ void logData(unsigned char * data, unsigned int size)
 
 void logwData(unsigned char * data, unsigned int size)
 {
-	char line[80];
 	unsigned int i, s, k;
 
 	if(size > 0x10)
@@ -164,21 +163,19 @@ void logPrintf(const char * format, ...)
 	va_end(args);
 	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	_fflush(loggingfile);
-	//close_logging_file();
 }
 
 void logwPrintf(const wchar_t * format, ...)
 {
-	int b;
 	va_list args;
 	va_start(args, format);
 	vsnwprintf_0(wline, 500, format, args);
 	va_end(args);
 	//b = wcstombs_0(line, wline, 500);
 	//_fwrite(line, sizeof(char), b, loggingfile);
-	_fwrite((char *)wline, sizeof(wchar_t), wcslen_0(wline), loggingfile);
+	WideCharToMultiByte_0(CP_UTF8, 0, wline, -1, line, 500, NULL, NULL);
+	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	_fflush(loggingfile);
-	//close_logging_file();
 }
 
 void logFuncInfo(void)
