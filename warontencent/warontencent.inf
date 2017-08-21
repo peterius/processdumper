@@ -1,0 +1,89 @@
+;
+; warontencent.inf
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Sample ; TODO: edit Class
+ClassGuid={78A1C341-4539-11d3-B88D-00C04FAD5171} ; TODO: edit ClassGuid
+Provider=%ManufacturerName%
+CatalogFile=warontencent.cat
+DriverVer = 08/15/2017,20.52.0.862
+
+[DestinationDirs]
+DefaultDestDir = 12
+warontencent_Device_CoInstaller_CopyFiles = 11
+
+; ================= Class section =====================
+
+[ClassInstall32]
+Addreg=SampleClassReg
+
+[SampleClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-5
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+warontencent.sys  = 1,,
+;
+
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTamd64
+
+[Standard.NTamd64]
+%warontencent.DeviceDesc%=warontencent_Device, Root\warontencent ; TODO: edit hw-id
+
+[warontencent_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+warontencent.sys
+
+;-------------- Service installation
+[warontencent_Device.NT.Services]
+AddService = warontencent,%SPSVCINST_ASSOCSERVICE%, warontencent_Service_Inst
+
+; -------------- warontencent driver install sections
+[warontencent_Service_Inst]
+DisplayName    = %warontencent.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\warontencent.sys
+
+;
+;--- warontencent_Device Coinstaller installation ------
+;
+
+[warontencent_Device.NT.CoInstallers]
+AddReg=warontencent_Device_CoInstaller_AddReg
+CopyFiles=warontencent_Device_CoInstaller_CopyFiles
+
+[warontencent_Device_CoInstaller_AddReg]
+;
+
+
+[warontencent_Device_CoInstaller_CopyFiles]
+;
+
+
+[warontencent_Device.NT.Wdf]
+KmdfService =  warontencent, warontencent_wdfsect
+[warontencent_wdfsect]
+KmdfLibraryVersion = 1.15
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+ClassName="Samples" ; TODO: edit ClassName
+DiskName = "warontencent Installation Disk"
+warontencent.DeviceDesc = "warontencent Device"
+warontencent.SVCDESC = "warontencent Service"
