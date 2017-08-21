@@ -3,8 +3,6 @@
 <!-- these values are guesses, maybe we should just match them up... maybe we will -->
 <value name="INVALID_SOCKET" value="0xffffffff"/>
 <type name="SOCKET" type="uint32_t"/>
-<type name="char" type="int8_t"/>
-<type name="wchar_t" type="int16_t"/>
 <type name="char *" type="pointer" basetype="char"/>
 <type name="wchar_t *" type="pointer" basetype="wchar_t"/>
 <type name="char[6]" type="array" basetype="char"/>
