@@ -20,7 +20,7 @@ extern void * curhook_stackpointer;
 
 int allocate_hook_space(void);
 void cleanup_hook_space(void);
-int hook_imports(void);
+int hook_imports(bool unhook=false);
 struct hooked_func * get_hooked_func_struct(void);
 
 extern "C"

@@ -19,6 +19,7 @@
 #include "hook.h"
 #include "logging.h"
 #include "hookstructures.h"
+#include "argspecutil.h"
 
 mallocPtr malloc_0;
 reallocPtr realloc_0;
@@ -98,7 +99,6 @@ void add_value_by_name(char * name, char * value);
 void add_value(char * name, value_t value);
 void add_signed_value(char * name, svalue_t value);
 void fixup_function_lengths(struct hooked_func * hfstruct);
-void insert_arg_spec(struct hooked_func * hfstruct, struct arg_spec * r, struct arg_spec * q);
 int parse(char * data, unsigned int size);
 void xmldebugPrint(char * d, int s);
 void whitespace(char ** d);
@@ -110,9 +110,8 @@ value_t get_quoted_numeric_value(char ** d, bool * neg);
 s_bool get_quoted_boolean(char ** d);
 
 char * g_xmlfile_buffer;
-char * base_type_names[] = { "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t" };
+char * base_type_names[] = { "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t", "void *", "char", "unsigned char", "wchar_t" };
 
-char void_ptr_type[] = "void *";
 char len_type[] = "size_t";			//is this appropriate, I just want to use it to signal buffer lengths... FIXME
 char bool_type[] = "bool";
 char ip4_type[] = "ip4_t";
@@ -135,10 +134,10 @@ void create_basic_types(void)
 
 	scope_list[0]->name = NULL;
 	scope_list[0]->defines = scope::global_or_unknown;
-	scope_list[0]->type_definitions = 15;
+	scope_list[0]->type_definitions = 19;
 	scope_list[0]->type_definition = (struct type_def **)malloc_0(scope_list[0]->type_definitions * sizeof(struct type_def *));
 
-	for(i = 0; i < 8; i++)
+	for(i = 0; i < 12; i++)
 	{
 		scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
 		scope_list[0]->type_definition[i]->name = base_type_names[i];
@@ -148,59 +147,59 @@ void create_basic_types(void)
 		scope_list[0]->type_definition[i]->offset = 0;
 		scope_list[0]->type_definition[i]->offset_relative_to = NULL;
 	}
-	/* We really just want a pointer base type, not necessarily a void *... but... I guess it's okay... */
-	scope_list[0]->type_definition[8] = (struct type_def *)malloc_0(sizeof(struct type_def));
-	scope_list[0]->type_definition[8]->name = void_ptr_type;
-	scope_list[0]->type_definition[8]->basetype = ARG_TYPE_PTR;
-	scope_list[0]->type_definition[8]->basetype_ref = NULL;
-	scope_list[0]->type_definition[8]->scope = NULL;
-	scope_list[0]->type_definition[8]->offset = 0;
-	scope_list[0]->type_definition[8]->offset_relative_to = NULL;
-	scope_list[0]->type_definition[9] = (struct type_def *)malloc_0(sizeof(struct type_def));
-	scope_list[0]->type_definition[9]->name = struct_type;
-	scope_list[0]->type_definition[9]->basetype = ARG_TYPE_STRUCT;
-	scope_list[0]->type_definition[9]->basetype_ref = NULL;
-	scope_list[0]->type_definition[9]->scope = NULL;
-	scope_list[0]->type_definition[9]->offset = 0;
-	scope_list[0]->type_definition[9]->offset_relative_to = NULL;
+	scope_list[0]->type_definition[i] = NULL;
+	i++;
+	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
+	scope_list[0]->type_definition[i]->name = struct_type;
+	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_STRUCT;
+	scope_list[0]->type_definition[i]->basetype_ref = NULL;
+	scope_list[0]->type_definition[i]->scope = NULL;
+	scope_list[0]->type_definition[i]->offset = 0;
+	scope_list[0]->type_definition[i]->offset_relative_to = NULL;
+	i++;
 	// what is this struct_element for again ?!?! 
-	scope_list[0]->type_definition[10] = (struct type_def *)malloc_0(sizeof(struct type_def));
+	scope_list[0]->type_definition[i] = NULL;
+	/*scope_list[0]->type_definition[10] = (struct type_def *)malloc_0(sizeof(struct type_def));
 	scope_list[0]->type_definition[10]->name = struct_type_element;
 	scope_list[0]->type_definition[10]->basetype = ARG_TYPE_STRUCT_ELEMENT;
 	scope_list[0]->type_definition[10]->basetype_ref = NULL;
 	scope_list[0]->type_definition[10]->scope = NULL;
 	scope_list[0]->type_definition[10]->offset = 0;
-	scope_list[0]->type_definition[10]->offset_relative_to = NULL;
-	scope_list[0]->type_definition[11]->name = NULL;
+	scope_list[0]->type_definition[10]->offset_relative_to = NULL;*/
+	i++;
+	scope_list[0]->type_definition[i] = NULL;
 	/*scope_list[0]->type_definition[11] = (struct type_def *)malloc_0(sizeof(struct type_def));
 	scope_list[0]->type_definition[11]->name = len_type;
 	scope_list[0]->type_definition[11]->basetype = ARG_TYPE_LEN;
 	scope_list[0]->type_definition[11]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT32];
 	scope_list[0]->type_definition[11]->scope = NULL;
-	scope_list[0]->type_definition[11]->offset = 0;*/
-	scope_list[0]->type_definition[11]->offset_relative_to = NULL;
-	scope_list[0]->type_definition[12] = (struct type_def *)malloc_0(sizeof(struct type_def));
-	scope_list[0]->type_definition[12]->name = bool_type;
-	scope_list[0]->type_definition[12]->basetype = ARG_TYPE_BOOL;
-	scope_list[0]->type_definition[12]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT8];			//double check FIXME FIXME FIXME
-	scope_list[0]->type_definition[12]->scope = NULL;
-	scope_list[0]->type_definition[12]->offset = 0;
-	scope_list[0]->type_definition[12]->offset_relative_to = NULL;
-	scope_list[0]->type_definition[13] = (struct type_def *)malloc_0(sizeof(struct type_def));
-	scope_list[0]->type_definition[13]->name = ip4_type;
-	scope_list[0]->type_definition[13]->basetype = ARG_TYPE_IP4;
-	scope_list[0]->type_definition[13]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT32];
-	scope_list[0]->type_definition[13]->scope = NULL;
-	scope_list[0]->type_definition[13]->offset = 0;
-	scope_list[0]->type_definition[13]->offset_relative_to = NULL;
+	scope_list[0]->type_definition[11]->offset = 0;
+	scope_list[0]->type_definition[11]->offset_relative_to = NULL;*/
+	i++;
+	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
+	scope_list[0]->type_definition[i]->name = bool_type;
+	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_BOOL;
+	scope_list[0]->type_definition[i]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT8];			//double check FIXME FIXME FIXME
+	scope_list[0]->type_definition[i]->scope = NULL;
+	scope_list[0]->type_definition[i]->offset = 0;
+	scope_list[0]->type_definition[i]->offset_relative_to = NULL;
+	i++;
+	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
+	scope_list[0]->type_definition[i]->name = ip4_type;
+	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_IP4;
+	scope_list[0]->type_definition[i]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT32];
+	scope_list[0]->type_definition[i]->scope = NULL;
+	scope_list[0]->type_definition[i]->offset = 0;
+	scope_list[0]->type_definition[i]->offset_relative_to = NULL;
+	i++;
 	/* FIXME FIXME FIXME IP6 */
-	scope_list[0]->type_definition[14] = (struct type_def *)malloc_0(sizeof(struct type_def));
-	scope_list[0]->type_definition[14]->name = ip6_type;
-	scope_list[0]->type_definition[14]->basetype = ARG_TYPE_IP6;
-	scope_list[0]->type_definition[14]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT32];
-	scope_list[0]->type_definition[14]->scope = NULL;
-	scope_list[0]->type_definition[14]->offset = 0;
-	scope_list[0]->type_definition[14]->offset_relative_to = NULL;
+	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
+	scope_list[0]->type_definition[i]->name = ip6_type;
+	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_IP6;
+	scope_list[0]->type_definition[i]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT32];
+	scope_list[0]->type_definition[i]->scope = NULL;
+	scope_list[0]->type_definition[i]->offset = 0;
+	scope_list[0]->type_definition[i]->offset_relative_to = NULL;
 	//what about like... true and false ?? FIXME FIXME FIXME
 	scope_list[0]->values = 0;
 	scope_list[0]->value = NULL;
@@ -278,8 +277,11 @@ void cleanup_scope(struct scope * scope)
 		free_0(scope->name);
 	for(i = 0; i < scope->type_definitions; i++)
 	{
-		if(scope->type_definition[i]->name)
-			free_0(scope->type_definition[i]->name);
+		if(scope->type_definition[i])
+		{
+			if(scope->type_definition[i]->name)
+				free_0(scope->type_definition[i]->name);
+		}
 		free_0(scope->type_definition[i]);
 	}
 	free_0(scope->type_definition);
@@ -302,6 +304,8 @@ struct type_def * lookup_type(char * name, bool cur_scope=false)
 	{
 		for(i = 0; i < scope_stack[scope_check_index]->type_definitions; i++)
 		{
+			if(!scope_stack[scope_check_index]->type_definition[i])
+				continue;
 			logPrintf("\t\t%s\n", scope_stack[scope_check_index]->type_definition[i]->name);
 			if(scope_stack[scope_check_index]->type_definition[i]->name && wstrcmp(name, scope_stack[scope_check_index]->type_definition[i]->name) == 0)
 			{
@@ -314,7 +318,6 @@ struct type_def * lookup_type(char * name, bool cur_scope=false)
 			break;
 		scope_check_index--;
 	}
-	logPrintf("XML parse error: can't resolve type %s\n", name);
 	return NULL;
 }
 
@@ -357,11 +360,14 @@ struct type_def * add_type(char * name, char * basetypename, bool isptr, bool lo
 		{
 			type_def->basetype = ARG_TYPE_PTR;
 			type_def->basetype_ref = looked_up_type_def;
+			logPrintf("adding pointer to %d\n", type_def->basetype_ref->basetype);
 		}
 		// not going to worry about arrays in nested structure types for now because of the sizes FIXME
+		// FIXME basically we need a special basetype for PTR and ARRAY... 
 		else
 		{
 			type_def->basetype = looked_up_type_def->basetype;
+			type_def->basetype_ref = NULL;
 		}
 		logPrintf("Adding %s with offset %d\n", type_def->name, type_def->offset);
 		return type_def;
@@ -391,14 +397,27 @@ unsigned int size_of_struct(struct type_def * s)
 
 unsigned int size_of_type(struct type_def * t)
 {
+	if(t->basetype == ARG_TYPE_PTR)
+#ifdef _WIN64
+		return 8;
+#else
+		return 4;
+#endif //_WIN64
+
+	if(t->basetype_ref)
+		return size_of_type(t->basetype_ref);
+
 	switch(t->basetype)
 	{
 		case ARG_TYPE_UINT8:
 		case ARG_TYPE_INT8:
+		case ARG_TYPE_CHAR:
+		case ARG_TYPE_UCHAR:
 			return 1;
 			break;
 		case ARG_TYPE_UINT16:
 		case ARG_TYPE_INT16:
+		case ARG_TYPE_WCHAR:
 			return 2;
 			break;
 		case ARG_TYPE_UINT32:
@@ -408,13 +427,6 @@ unsigned int size_of_type(struct type_def * t)
 		case ARG_TYPE_UINT64:
 		case ARG_TYPE_INT64:
 			return 8;
-			break;
-		case ARG_TYPE_PTR:
-	#ifdef _WIN64
-			return 8;
-	#else
-			return 4;
-	#endif //_WIN64
 			break;
 		case ARG_TYPE_STRUCT:
 			return size_of_struct(t);
@@ -513,7 +525,8 @@ ffl_onemoretime:
 			{
 				if(j->arg_name && (j->arg_name, (char *)i->deref_len) == 0)
 				{
-					insert_arg_spec(hfstruct, i, j);
+					insert_arg_spec(hfstruct->arg, i, j);
+					j->type |= ARGSPECLENRELATED;
 					free_0(i->deref_len);
 					i->deref_len = NULL;
 					goto ffl_onemoretime;
@@ -523,33 +536,6 @@ ffl_onemoretime:
 		}
 		i = i->next_spec;
 	}
-}
-
-void insert_arg_spec(struct hooked_func * hfstruct, struct arg_spec * r, struct arg_spec * q)
-{
-	struct arg_spec * a, * b, * c;
-	if(q->next_spec == r)
-		return;
-	b = q->next_spec;
-	a = hfstruct->arg;
-	while(a)
-	{
-		c = a->next_spec;
-		if(c == q)
-		{
-			a->next_spec = b;
-			a = b;
-		}
-		else if(c == r)
-		{
-			a->next_spec = q;
-			q->next_spec = r;
-			a = r;
-		}
-		else
-			a = c;
-	}
-
 }
 
 int loadxmlhookfile(void)
@@ -644,10 +630,12 @@ int parse(char * data, unsigned int size)
 	unsigned int ordinal;
 	bool neg;
 	bool is_an_element;
+	bool is_return_value;
 	s_bool log, precall, postcall, stacktrace;
 	struct hooked_func * hfstruct;
 	struct type_def * t;
 	struct arg_spec * arg_spec;
+	struct arg_spec * proto, * proto_end;
 	argchecktype a;
 
 	value_t numericvalue;
@@ -665,9 +653,13 @@ int parse(char * data, unsigned int size)
 	argtype = NULL;
 	argsize = NULL;
 	arg_spec = NULL;
+	proto = NULL;
+	proto_end = NULL;
 	
 	d = data;
 	end = d + size;
+
+	is_return_value = false;
 
 	while(d < end)
 	{
@@ -730,6 +722,8 @@ int parse(char * data, unsigned int size)
 						logPrintf("XML parse error: nested arg with no struct type\n");
 						return -1;
 					}
+					cleanup_arg_spec_deref(proto);
+					proto = NULL;
 					leave_scope();
 				}
 				else if(wstrncmp(d, "return", 6) == 0)
@@ -739,6 +733,9 @@ int parse(char * data, unsigned int size)
 						logPrintf("XML parse error: nested return with no struct type\n");
 						return -1;
 					}
+					cleanup_arg_spec_deref(proto);
+					proto = NULL;
+					is_return_value = false;
 					leave_scope();
 				}
 				else if(wstrncmp(d, "element", 7) == 0)
@@ -749,6 +746,17 @@ int parse(char * data, unsigned int size)
 						return -1;
 					}
 					CURRENT_SCOPE->defines = scope::type_closed;			//we can safely close even if we're within an arg
+					if(proto)		//inside an arg...
+					{
+						if(proto == proto_end)
+						{
+							logPrintf("XML parse error: element with no containing arg proto ?!?\n");
+							return -1;
+						}
+						proto_end = get_prev_arg_spec_deref(proto, proto_end);
+						cleanup_arg_spec_deref(proto_end->deref);
+						proto_end->deref = NULL;
+					}
 					leave_scope();
 				}
 				else
@@ -868,8 +876,6 @@ int parse(char * data, unsigned int size)
 					}
 					if(functionname)
 					{
-						__debugbreak();
-
 						//set up basics for the hooked_func struct before catching arguments, return, etc..
 						if(!libn)
 						{
@@ -1135,6 +1141,7 @@ parse_handletype:
 					return -1;
 				}
 				d += 3;
+				is_return_value = false;			// is this enough?
 parse_handlearg:
 				whitespace(&d);
 				//defaults
@@ -1156,6 +1163,13 @@ parse_handlearg:
 						whitespace(&d);
 						argname = get_quoted_value(&d);
 						xmldebugPrint(d, 20);
+						/* FIXME FIXME FIXME what about this strcmp_0, wstrncmp stuff... 
+						 * also, more lenient parser errors... */
+						if(strcmp_0(argname, "return") == 0)
+						{
+							logPrintf("XML parse error: can't use 'return' as an argument name\n");
+							return -1;
+						}
 					}
 					else if(wstrncmp(d, "type", 4) == 0)
 					{
@@ -1232,34 +1246,82 @@ parse_handlearg:
 							return -1;
 						}
 						a = 0;
-						if(precall != fase)
+						//if(is_return_value)
+						//	__debugbreak();
+						//if(!argsize && t->basetype == ARG_TYPE_PTR)
+						//	__debugbreak();
+						if(precall != fase && !is_return_value)
 							a |= ARGSPECOFPRECALLINTEREST;
-						if(postcall == tru)
+						if(postcall == tru || (is_return_value && postcall != fase))
 							a |= ARGSPECOFPOSTCALLINTEREST;
+						if(is_return_value)
+							a |= ARGSPECRETURN_VALUE;
+						logPrintf("arg %s %04x\n", argname, a);
 						if(t->basetype > 20)
 							logPrintf("XML parse error: high base type %d\n", t->basetype);
-						a |= t->basetype;
+						if(t->basetype == ARG_TYPE_PTR && !t->basetype_ref)		//DEBUG
+						{
+							logPrintf("XML parse error: pointer with no basetype_ref!\n");
+							return -1;
+						}
+						
+						// FIXME wait... are char and unsigned char * strings different ?!?! FIXME
+						if(t->basetype == ARG_TYPE_PTR && !argsize && (t->basetype_ref->basetype == ARG_TYPE_CHAR || t->basetype_ref->basetype == ARG_TYPE_UCHAR))
+							a |= ARG_TYPE_STR;
+						else if(t->basetype == ARG_TYPE_PTR && !argsize && t->basetype_ref->basetype == ARG_TYPE_WCHAR)
+							a |= ARG_TYPE_WSTR;
+						else if(t->basetype == ARG_TYPE_PTR)
+						{
+							a |= t->basetype_ref->basetype;
+							a |= ARGSPECPOINTER;
+						}
+						else
+							a |= t->basetype;
+						struct arg_spec * ad;
 						if(!arg_spec)
 						{
-							arg_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+							if(!proto)
+							{
+								arg_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+								ad = arg_spec;
+							}
+							else
+							{
+								arg_spec = copy_arg_spec_chain(proto);
+								ad = deref_end(hfstruct->arg);
+							}
 							arg_spec->next_spec = NULL;
 							hfstruct->arg = arg_spec;
 						}
 						else
 						{
-							arg_spec->next_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+							if(proto)
+							{
+								arg_spec->next_spec = copy_arg_spec_chain(proto);
+								ad = deref_end(arg_spec->next_spec);
+								ad->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+								ad = ad->deref;
+							}
+							else
+							{
+								arg_spec->next_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+								ad = arg_spec->next_spec;
+							}
 							arg_spec = arg_spec->next_spec;
 							arg_spec->next_spec = NULL;
 						}
 						if(CURRENT_SCOPE->defines == scope::type)
-							arg_spec->offset = t->offset;
+							ad->offset = t->offset;
+						else if(is_return_value)
+							ad->offset = 0;
 						else
-							arg_spec->offset = (ARGUMENT_SIZE * functionargument_index++);
-						arg_spec->arg_name = argname;
+							ad->offset = (ARGUMENT_SIZE * functionargument_index++);
+						ad->arg_name = argname;
 						argname = NULL;
-						arg_spec->deref_len = (argtypep)argsize;
+						ad->deref_len = (argtypep)argsize;
+						ad->deref = NULL;
 						argsize = NULL;
-						arg_spec->deref_type = (argtypep)a;
+						ad->type = a;
 					}
 				}
 				else
@@ -1300,13 +1362,21 @@ parse_handlearg:
 					if(t->basetype == ARG_TYPE_PTR && (log == tru || precall == tru || postcall == tru))
 					{
 						a = 0;
-						if(precall != fase)
+						if(precall != fase && !is_return_value)
 							a |= ARGSPECOFPRECALLINTEREST;
-						if(postcall == tru)
+						if(postcall == tru || (is_return_value && postcall != fase))
 							a |= ARGSPECOFPOSTCALLINTEREST;
+						if(is_return_value)
+							a |= ARGSPECRETURN_VALUE;
 						if(t->basetype > 20)
 							logPrintf("XML parse error: high base type %d\n", t->basetype);
-						a |= t->basetype;
+						if(t->basetype == ARG_TYPE_PTR)
+						{
+							a |= t->basetype_ref->basetype;
+							a |= ARGSPECPOINTER;
+						}
+						else
+							a |= t->basetype;
 						if(!arg_spec)
 						{
 							arg_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
@@ -1321,14 +1391,50 @@ parse_handlearg:
 						}
 						if(CURRENT_SCOPE->defines == scope::type)
 							arg_spec->offset = t->offset;
+						else if(is_return_value)
+							arg_spec->offset = 0;
 						else
 							arg_spec->offset = (ARGUMENT_SIZE * functionargument_index++);
 						arg_spec->arg_name = argname;
 						argname = NULL;
 						arg_spec->deref_len = (argtypep)argsize;
+						arg_spec->deref = NULL;
 						argsize = NULL;
-						arg_spec->deref_type = (argtypep)a;
+						arg_spec->type = a;
 					}
+					//setup the additional arg_spec deref chain for contained elements... 
+					if(t->basetype == ARG_TYPE_PTR)		//if its a structure and not a pointer, like nested structures then no deref, just track offsets
+					{
+						arg_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+						arg_spec->next_spec = NULL;
+						if(CURRENT_SCOPE->defines == scope::type)
+							arg_spec->offset = t->offset;
+						else if(is_return_value)
+							arg_spec->offset = 0;
+						else
+							arg_spec->offset = (ARGUMENT_SIZE * functionargument_index++);
+						/* FIXME FIXME FIXME we might want the arg_name but we'd have to make a copy of it... */
+						arg_spec->arg_name = NULL;
+						arg_spec->deref_len = NULL;
+						arg_spec->type = ARG_TYPE_PTR;
+						/* It has to be arg_type_ptr because we don't know what will be caught within it, and we need
+						 * a deref regardless... */
+						arg_spec->deref = NULL;
+						if(proto)
+						{
+							// this is an element opening tag:
+							proto_end->deref = arg_spec;
+							proto_end = arg_spec;
+							/* FIXME we could remove proto_end and just use deref_end to look it up at the time... it's kind
+							 * of one more variable to keep track of but whatever... */
+						}
+						else
+						{
+							proto = arg_spec;
+							proto_end = proto;
+						}
+					}
+
 				}
 				/* We actually probably want to save the argname somewhere so that it can be used by the
 				 * hook logger FIXME FIXME FIXME */
@@ -1362,6 +1468,7 @@ parse_handlearg:
 				argname = (char *)malloc_0((l + 1) * sizeof(char));
 				memcpy_0(argname, "return value", l * sizeof(char));
 				argname[l] = 0x00;
+				is_return_value = true;
 				goto parse_handlearg;
 			}
 			else if(wstrncmp(d, "success", 7) == 0)
@@ -1436,7 +1543,6 @@ parse_handlearg:
 					whitespace(&d);
 				}
 				d += 2;
-				__debugbreak();
 			}
 		}
 		else

@@ -14,23 +14,6 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 #pragma once
 
-typedef struct arg_spec
-{
-	char * arg_name;
-	unsigned long offset;
-	struct arg_spec * deref_type;			//could use union, but how do we make sure about the mask...
-	struct arg_spec * deref_len;
-	struct arg_spec * next_spec;
-} * argtypep;
-
-#define ARGSPECOFINTERESTMASK			0xe000
-#define ARGSPECARRAY					0x1000
-#define ARGSPECRETURN_VALUE				0x2000
-#define ARGSPECOFPRECALLINTEREST		0x4000
-#define ARGSPECOFPOSTCALLINTEREST		0x8000
-#define ARGSPECLENRELATED				0x0800
-#define ARGSPECTYPEMASK					0x07ff
-
 #ifdef _WIN64
 typedef unsigned long long value_t;
 typedef long long svalue_t;
@@ -38,14 +21,6 @@ typedef long long svalue_t;
 typedef unsigned long value_t;
 typedef long svalue_t;
 #endif //_WIN64
-
-#ifdef _WIN64
-#define ARGSPECDEREFMASK		0xffffffffffff0000
-#else
-#define ARGSPECDEREFMASK		0xffff0000
-#endif //_WIN64
-
-typedef value_t argchecktype;
 
 //base types
 
@@ -58,15 +33,16 @@ typedef value_t argchecktype;
 #define ARG_TYPE_INT64					6
 #define ARG_TYPE_UINT64					7
 #define ARG_TYPE_PTR					8
+#define ARG_TYPE_CHAR					9
+#define ARG_TYPE_UCHAR					10
+#define ARG_TYPE_WCHAR					11
 
-#define ARG_TYPE_STRUCT					9
-#define ARG_TYPE_STRUCT_ELEMENT			10
-//#define ARG_TYPE_LEN					11
-#define ARG_TYPE_CHARP					12
-#define ARG_TYPE_UCHARP					13
-#define ARG_TYPE_WCHARP					14
-#define ARG_TYPE_STR					15
-#define ARG_TYPE_WSTR					16
+
+#define ARG_TYPE_STRUCT					12
+
+
+#define ARG_TYPE_STR					15				//null terminated
+#define ARG_TYPE_WSTR					16				//null terminated
 
 #define ARG_TYPE_BOOL					17
 #define ARG_TYPE_IP4					18
