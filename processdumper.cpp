@@ -29,6 +29,7 @@
 
 #define NOINJECTIONCOMM
 #define FUNCTIONSTOHOOKFILE			L"functionstohook.xml"
+#define HELPERLOGFILE				"C:\\Users\\Peterius\\Documents\\anothergoddamnday.log"
 
 
 typedef struct _CLIENT_ID
@@ -58,6 +59,7 @@ HMODULE fakentDLL = NULL;
 
 uint32_t g_pid;
 char * functionstohookfilename;
+char * helperlogfilename;
 char * g_injectedbaseaddress;
 char * unhookaddress;
 
@@ -169,8 +171,9 @@ void queryidt(void)
 	uint64_t idt64p;
 	int i;
 	//struct idtentry * idtentryp;
+#ifdef IGUESSWERENOTTHEKERNEL
 	struct idtentry64 * idtentry64p;
-
+#endif //IGUESSWERENOTTHEKERNEL
 	memset(idt64, 0, 10);
 	GetIDT64(idt64);
 
@@ -247,6 +250,7 @@ int main(int argc, char ** argv)
 	DWORD err;
 
 	functionstohookfilename = NULL;
+	helperlogfilename = NULL;
 	g_pid = (uint32_t)-1;
 	g_injectedbaseaddress = NULL;
 
@@ -258,11 +262,17 @@ int main(int argc, char ** argv)
 			outputdirname = (char *)malloc(strlen(argv[i]) + 1);
 			sprintf(outputdirname, argv[i]);
 		}
-		if(strcmp("-r", argv[i]) == 0)
+		else if(strcmp("-r", argv[i]) == 0)
 		{
 			i++;
 			reconfromdir = (char *)malloc(strlen(argv[i]) + 1);
 			sprintf(reconfromdir, argv[i]);
+		}
+		else if(strcmp("-l", argv[i]) == 0)
+		{
+			i++;
+			helperlogfilename = (char *)malloc(strlen(argv[i]) + 1);
+			sprintf(helperlogfilename, argv[i]);
 		}
 		else if(strcmp("-q", argv[i]) == 0)
 		{
@@ -295,12 +305,13 @@ int main(int argc, char ** argv)
 		}
 		else if(strcmp("--help", argv[i]) == 0 || strcmp("-h", argv[i]) == 0)
 		{
-			printf("./processdumper -dn -o [dirname] -p [pid] -r [previousoutdir] -q [previousoutdir]\n");
+			printf("./processdumper -dn -o [dirname] -p [pid] -r [previousoutdir] -q [previousoutdir] -l [logfile]\n");
 			printf("\t-r [outdir]: reconstruct from previous output directory\n");
 			printf("\t-q [outdir]: query previously reconstituted exe/dll\n");
 			printf("\t-d: don't produce output files or reconstitute\n");
 			printf("\t-n: don't install driver\n");
 			printf("\t-j: don't attempt to inject process\n");
+			printf("\t-l [logfilename]: injected library will log to this file\n");
 			printf("\t--functions [xmlfile]: specify functions to hook\n");
 			return 0;
 		}
@@ -338,6 +349,12 @@ int main(int argc, char ** argv)
 		fprintf(stderr, "No output directory specified, using PID...\n");
 		outputdirname = (char *)malloc(10);
 		sprintf(outputdirname, "%d", g_pid);
+	}
+
+	if(!helperlogfilename)
+	{
+		helperlogfilename = (char *)malloc(strlen(HELPERLOGFILE) + 1);
+		sprintf(helperlogfilename, HELPERLOGFILE);
 	}
 
 	if(driver && install_driver() < 0)
@@ -721,7 +738,7 @@ int main(int argc, char ** argv)
 main_exit:
 	//RemoveDirectoryA(outputdirname);
 	free(outputdirname);
-	
+	free(helperlogfilename);
 
 	//FIXME silly dll names
 	//if(fakentDLL)
@@ -840,9 +857,9 @@ int enummodulepulldown(HANDLE processH, char * outputdirname)
 			{
 				outname = (char *)calloc(strlen((char *)szModName) + strlen(outputdirname) + 40, sizeof(char));
 				if(wow64)
-					sprintf(outname, "%s/inmem_%08x_%s", outputdirname, hMods[i], szModName);
+					sprintf(outname, "%s/inmem_%08x_%s", outputdirname, hMods[i], (char *)szModName);
 				else
-					sprintf(outname, "%s/inmem_%08x%08x_%s", outputdirname, PRINTARG64(hMods[i]), szModName);
+					sprintf(outname, "%s/inmem_%08x%08x_%s", outputdirname, PRINTARG64(hMods[i]), (char *)szModName);
 			}
 			else
 			{
@@ -866,12 +883,12 @@ int enummodulepulldown(HANDLE processH, char * outputdirname)
 			{
 				if(produceoutput && !outfileh)
 				{
-					fprintf(stderr, "Error creating file %s: %d\n", outfileh, GetLastError());
+					fprintf(stderr, "Error creating file %s: %d\n", outname, GetLastError());
 				}
 				else if(ReadProcessMemory(processH, hMods[i], thebuffer, modinfo.SizeOfImage, &bytes_read) == 0)
 				{
 					if(GetLastError() == ERROR_PARTIAL_COPY)
-						fprintf(stderr, "Error reading process memory: partial copy?\n", GetLastError());
+						fprintf(stderr, "Error reading process memory: partial copy?\n");
 					else
 						fprintf(stderr, "Error reading process memory: %d\n", GetLastError());
 					//299 ERROR_PARTIAL_COPY
@@ -1238,7 +1255,6 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 			return -1;
 		}
 
-
 		call32 = Get32ProcAddress("kernel32.dll", "GetProcAddress");
 		printf("call: %08x\n", call32);
 		datasymbol = (char **)get_symbol_from_filedata(code, size, "OurGetProcAddress", 0);
@@ -1288,7 +1304,7 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	}
 	datasymbol = (char **)get_symbol_from_filedata(code, size, "logfileName", 0);
 	if(datasymbol)
-		strcpy((char *)datasymbol, "C:\\Users\\Peterius\\Documents\\anothergoddamnday.log");
+		strcpy((char *)datasymbol, helperlogfilename);
 	else
 	{
 		fprintf(stderr, "Can't find logfileName\n");
