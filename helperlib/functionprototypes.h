@@ -57,7 +57,7 @@ typedef HANDLE(__stdcall * CreateFileWPtr)(LPCTSTR lpFileName, DWORD dwDesiredAc
 typedef DWORD (WINAPI * GetFileSizePtr)(HANDLE hFile, LPDWORD lpFileSizeHigh);
 typedef BOOL (WINAPI * ReadFilePtr)(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped);
 typedef DWORD(WINAPI * SetFilePointerPtr)(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod);
-typedef int ( * WideCharToMultiBytePtr)(UINT CodePage, DWORD dwFlags, LPCWSTR lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, LPCSTR lpDefaultChar, LPBOOL lpUsedDefaultChar);
+typedef int (__stdcall * WideCharToMultiBytePtr)(UINT CodePage, DWORD dwFlags, LPCWSTR lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, LPCSTR lpDefaultChar, LPBOOL lpUsedDefaultChar);
 typedef VOID (WINAPI * ExitThreadPtr)(DWORD dwExitCode);
 
 extern fopenPtr _fopen;
