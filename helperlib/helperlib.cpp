@@ -6,15 +6,14 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *	but WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
- *	GNU General Public License for more details.
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+ *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 #include <stdint.h>
 #include <WinSock2.h>
-#include "stdafx.h"
 #include "helperlib.h"
 #include "functionprototypes.h"
 #include "logging.h"
@@ -39,10 +38,10 @@ typedef int(*WSAStartupPtr)(WORD wVersionRequested, LPWSADATA lpWSAData);
 typedef int(*WSACleanupPtr)(void);
 typedef int(*WSAGetLastErrorPtr)(void);
 typedef int(*connectPtr)(SOCKET s, const struct sockaddr *name, int namelen);
-typedef u_short(*/*WSAAPI*/ htonsPtr)(u_short hostshort);
+typedef u_short(* /*WSAAPI*/ htonsPtr)(u_short hostshort);
 typedef unsigned long(*inet_addrPtr)(const char *cp);
 typedef int(*closesocketPtr)(SOCKET s);
-typedef SOCKET(*/*WSAAPI*/ socketPtr)(int af, int type, int protocol);
+typedef SOCKET(* /*WSAAPI*/ socketPtr)(int af, int type, int protocol);
 typedef int(*sendPtr)(SOCKET s, const char *buf, int len, int flags);
 
 LoadLibraryPtr OurLoadLibrary = (LoadLibraryPtr)0x6000000000000006;
@@ -149,9 +148,11 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 
 DWORD WINAPI UnloadHelperLib(LPVOID param)
 {
+	logPrintf("Cleaning up hooks...\n");
 	cleanup_hook_space();
 	DeleteCriticalSection_0(&critsection);
 
+	logPrintf("Closing log...\n");
 	close_logging_file();
 
 	ExitThread_0(0);
