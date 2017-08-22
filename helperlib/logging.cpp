@@ -33,9 +33,9 @@ vsnwprintfPtr vsnwprintf_0;
 strlenPtr strlen_0;
 wcslenPtr wcslen_0;
 
-
 int setup_logging_file(char * filename)
 {
+#ifdef UNICODE_BOM
 	unsigned char bom[] = { 0xFF, 0xFE };
 	
 	loggingfile = _fopen(filename, "r");
@@ -47,9 +47,11 @@ int setup_logging_file(char * filename)
 	else
 	{
 		_fclose(loggingfile);
+#endif //UNICODE_BOM
 		loggingfile = _fopen(filename, "ab+");
+#ifdef UNICODE_BOM
 	}
-
+#endif //UNICODE_BOM
 	if(!loggingfile)
 		return -1;
 
