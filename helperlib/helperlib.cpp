@@ -118,7 +118,8 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 	}
 	try
 	{
-		setup_logging_file(logfileName);
+		if(setup_logging_file(logfileName) < 0)
+			ExitThread_0(-1);				//no point to going further... 
 	}
 	catch(...)
 	{
