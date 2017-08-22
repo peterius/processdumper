@@ -271,8 +271,8 @@ int main(int argc, char ** argv)
 		else if(strcmp("-l", argv[i]) == 0)
 		{
 			i++;
-			helperlogfilename = (char *)malloc(strlen(argv[i]) + 1);
-			sprintf(helperlogfilename, argv[i]);
+			helperlogfilename = (char *)malloc(MAX_PATH);
+			GetFullPathNameA(argv[i], MAX_PATH, helperlogfilename, NULL);
 		}
 		else if(strcmp("-q", argv[i]) == 0)
 		{
