@@ -1209,6 +1209,7 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	char ** datasymbol;
 	HANDLE thread;
 	DWORD thread_id;
+	DWORD texitcode;
 	uint16_t port;
 	char * section_address;
 	unsigned int section_size;
@@ -1392,9 +1393,13 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	}
 
 	WaitForSingleObject(thread, INFINITE);
+	GetExitCodeThread(thread, &texitcode);
 	CloseHandle(thread);
 
-	printf("Injection procedure complete\n");
+	if(texitcode != 0)
+		printf("Injection procedure likely failed: %d\n", texitcode);
+	else
+		printf("Injection procedure complete\n");
 
 	CloseHandle(pH);
 	return 0;
