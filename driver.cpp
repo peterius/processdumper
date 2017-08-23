@@ -160,7 +160,7 @@ int driverIoCtl(int ioctlCode, char * inbuffer, unsigned long insize, char * out
 	HANDLE hDevice = CreateFileA(device.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if(hDevice != INVALID_HANDLE_VALUE)
 	{
-		DWORD bytesReturned;
+		//DWORD bytesReturned;
 		//  DeviceIoControl(hDevice, ioctlCode, &param, sizeof(unsigned int), NULL, 0, &bytesReturned, NULL))
 		if(!DeviceIoControl(hDevice, ioctlCode, inbuffer, insize, outbuffer, *outsize, outsize, NULL))
 		{

@@ -57,7 +57,10 @@
 </function>
 <function lib="ws2_32.dll" name="accept" ordinal="1">
 	<arg name="socket" type="SOCKET"/>
-	<arg name="name" type="struct sockaddr_in *" precall="false" postcall="true"/>
+	<arg name="name" type="struct sockaddr_in *">
+		<element name="sin_port" precall="false" postcall="true"/>
+		<element name="sin_addr" precall="false" postcall="true"/>
+	</arg>
 	<return type="SOCKET"/>
 	<success return="notequal" value="INVALID_SOCKET"/>
 </function>
