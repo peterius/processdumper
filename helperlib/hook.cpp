@@ -43,7 +43,6 @@ value_t g_next_dispatch_length;
 int isofprecallinterest(argtypep arg);
 int isofpostcallinterest(argtypep arg);
 void dispatch_arg(void * p, argtypep arg);
-void dispatch_arg_by_type(enum arg_type type, void * data);
 int hook_import_table(char * baseaddr, unsigned int size, bool unhook=false);
 struct hooked_func * shouldwehook(char * libname, unsigned short ordinal, char * funcname);
 int generate_hook(struct hooked_func * proto_hfstruct);
@@ -64,7 +63,6 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	curhook_stackpointer = sp;
 	curhook_origret = *(void **)((char *)curhook_stackpointer + OUR_SP_ADDITIONS);
 
-	/* For now, there's no point in anything else... we'd have to add another dispatch and push it again, etc.. */
 	curhook_hfstruct = (struct hooked_func *)(hookspace + (functiondispatch * totalhooksize));
 #ifdef _WIN64
 	logPrintf("%08x%08x called %s\n", PRINTARG64(curhook_origret), curhook_hfstruct->origname);
@@ -76,6 +74,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	arg_spec = curhook_hfstruct->arg;
 	while(arg_spec)
 	{
+		logPrintf("arg_spec type %04x %p\n", arg_spec->type, arg_spec->deref);
 		if(isofprecallinterest(arg_spec))
 #ifdef _WIN64
 			dispatch_arg((char *)curhook_stackpointer + OUR_SP_ADDITIONS + 8, arg_spec);
@@ -91,26 +90,25 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 #else
 #endif //_WIN64
 	curhook_stackandretval = call_orig_func_as_if(curhook_stackpointer, curhook_hfstruct->origfunc, RETURNTOHERE);		//need to leave critical section
-	logPrintf("Call returned %08x\n", *(void **)curhook_stackandretval);
-
-	logPrintf("WAS: %p\n", curhook_stackandretval);
+	logPrintf("returns:\n");
+	/* How do we differentiate return values in the log FIXME */
 	g_next_dispatch_length = 0;
 	arg_spec = curhook_hfstruct->arg;
 	while(arg_spec)
 	{
 		if(isofpostcallinterest(arg_spec))
 		{
-			logPrintf("IS: %p\n", curhook_stackandretval);
+			logPrintf("\t");
 #ifdef _WIN64
 			if(arg_spec->type & ARGSPECRETURN_VALUE)
-				dispatch_arg((char *)curhook_stackpointer, arg_spec);
+				dispatch_arg((char *)curhook_stackandretval, arg_spec);
 			else
-				dispatch_arg((char *)curhook_stackpointer + OUR_SP_ADDITIONS + 8, arg_spec);
+				dispatch_arg((char *)curhook_stackandretval + OUR_SP_ADDITIONS + 8, arg_spec);
 #else
 			if(arg_spec->type & ARGSPECRETURN_VALUE)
-				dispatch_arg((char *)curhook_stackpointer, arg_spec);
+				dispatch_arg((char *)curhook_stackandretval, arg_spec);
 			else
-				dispatch_arg((char *)curhook_stackpointer + OUR_SP_ADDITIONS + 4, arg_spec);
+				dispatch_arg((char *)curhook_stackandretval + OUR_SP_ADDITIONS + 4, arg_spec);
 #endif //_WIN64
 		}
 		arg_spec = arg_spec->next_spec;
@@ -147,302 +145,302 @@ int isofpostcallinterest(argtypep arg)
 void dispatch_arg(void * p, argtypep arg)
 {
 	unsigned int i;
+	argchecktype type;
 #ifdef _WIN64
 	unsigned long long temp;
 #endif //_WIN64
-	__debugbreak();
+	//__debugbreak();
 	/* At some point, I probably want to use the ->type type space
 	 * to do a lookup where we can store some variable names from the XML FIXME */
-	logPrintf("p %p + %04x\n", p, arg->offset);
+
+	type = arg->type;
 	p = (char *)p + arg->offset;
-	if(arg->deref)
+	while(arg->deref)
 	{
-		dispatch_arg(p, arg->deref);
+		arg = arg->deref;
+		p = (char *)p + arg->offset;
 	}
-	else
+
+	if(type & ARGSPECARRAY)
+		logPrintf("WARNING: dispatch array argument unhandled!\n");
+
+	//final data
+	switch(type & ARGSPECTYPEMASK)
 	{
-		if(arg->type & ARGSPECARRAY)
-			logPrintf("WARNING: dispatch array argument unhandled!\n");
-
-		//final data
-		switch(arg->type & ARGSPECTYPEMASK)
-		{
-			case ARG_TYPE_INT8:
-				if(arg->type & ARGSPECLENRELATED)
-				{
-					if(arg->type & ARGSPECPOINTER)
-						g_next_dispatch_length = (value_t)**(char **)p;
-					else
-						g_next_dispatch_length = (value_t)*(char *)p;
-				}
-				else if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%d, ", (*(char **)p)[i]);
-					logPrintf("%d\n", (*(char **)p)[i]);
-					g_next_dispatch_length = 0;
-				}
+		case ARG_TYPE_INT8:
+			if(type & ARGSPECLENRELATED)
+			{
+				if(type & ARGSPECPOINTER)
+					g_next_dispatch_length = (value_t)**(char **)p;
 				else
-					logPrintf("INT8: %d\n", *(char *)p);
-				break;
-			case ARG_TYPE_UINT8:
-				if(arg->type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)*(char *)p;
+			}
+			else if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					if(arg->type & ARGSPECPOINTER)
-						g_next_dispatch_length = (value_t)**(unsigned char **)p;
-					else
-						g_next_dispatch_length = (value_t)*(unsigned char *)p;
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
 				}
-				else if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("UCHAR[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%u, ", (*(unsigned char **)p)[i]);
-					logPrintf("%u\n", (*(unsigned char **)p)[i]);
-					g_next_dispatch_length = 0;
-				}
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%d, ", (*(char **)p)[i]);
+				logPrintf("%d\n", (*(char **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("INT8: %d\n", *(char *)p);
+			break;
+		case ARG_TYPE_UINT8:
+			if(type & ARGSPECLENRELATED)
+			{
+				if(type & ARGSPECPOINTER)
+					g_next_dispatch_length = (value_t)**(unsigned char **)p;
 				else
-					logPrintf("UINT8: %u\n", *(unsigned char *)p);
-				break;
-			case ARG_TYPE_INT16:
-				if(arg->type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)*(unsigned char *)p;
+			}
+			else if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					if(arg->type & ARGSPECPOINTER)
-						g_next_dispatch_length = (value_t)**(short **)p;
-					else
-						g_next_dispatch_length = (value_t)*(short *)p;
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
 				}
-				else if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("SHORT[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%d, ", (*(short **)p)[i]);
-					logPrintf("%d\n", (*(short **)p)[i]);
-					g_next_dispatch_length = 0;
-				}
+				logPrintf("UCHAR[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%u, ", (*(unsigned char **)p)[i]);
+				logPrintf("%u\n", (*(unsigned char **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("UINT8: %u\n", *(unsigned char *)p);
+			break;
+		case ARG_TYPE_INT16:
+			if(type & ARGSPECLENRELATED)
+			{
+				if(type & ARGSPECPOINTER)
+					g_next_dispatch_length = (value_t)**(short **)p;
 				else
-					logPrintf("SHORT: %d\n", *(short *)p);
-				break;
-			case ARG_TYPE_UINT16:
-				if(arg->type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)*(short *)p;
+			}
+			else if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					if(arg->type & ARGSPECPOINTER)
-						g_next_dispatch_length = (value_t)**(unsigned short **)p;
-					else
-						g_next_dispatch_length = (value_t)*(unsigned short *)p;
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
 				}
-				else if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("USHORT[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%u, ", (*(unsigned short **)p)[i]);
-					logPrintf("%u\n", (*(unsigned short **)p)[i]);
-					g_next_dispatch_length = 0;
-				}
+				logPrintf("SHORT[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%d, ", (*(short **)p)[i]);
+				logPrintf("%d\n", (*(short **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("SHORT: %d\n", *(short *)p);
+			break;
+		case ARG_TYPE_UINT16:
+			if(type & ARGSPECLENRELATED)
+			{
+				if(type & ARGSPECPOINTER)
+					g_next_dispatch_length = (value_t)**(unsigned short **)p;
 				else
-					logPrintf("USHORT: %u\n", *(unsigned short *)p);
-				break;
-			case ARG_TYPE_INT32:
-				if(arg->type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)*(unsigned short *)p;
+			}
+			else if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					if(arg->type & ARGSPECPOINTER)
-						g_next_dispatch_length = (value_t)**(long **)p;
-					else
-						g_next_dispatch_length = (value_t)*(long *)p;
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
 				}
-				else if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("LONG[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%d, ", (*(long **)p)[i]);
-					logPrintf("%d\n", (*(long **)p)[i]);
-					g_next_dispatch_length = 0;
-				}
+				logPrintf("USHORT[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%u, ", (*(unsigned short **)p)[i]);
+				logPrintf("%u\n", (*(unsigned short **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("USHORT: %u\n", *(unsigned short *)p);
+			break;
+		case ARG_TYPE_INT32:
+			if(type & ARGSPECLENRELATED)
+			{
+				if(type & ARGSPECPOINTER)
+					g_next_dispatch_length = (value_t)**(long **)p;
 				else
-					logPrintf("LONG: %d\n", *(long *)p);
-				break;
-			case ARG_TYPE_UINT32:
-				if(arg->type & ARGSPECLENRELATED)
+					g_next_dispatch_length = (value_t)*(long *)p;
+			}
+			else if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					if(arg->type & ARGSPECPOINTER)
-						g_next_dispatch_length = (value_t)**(unsigned long **)p;
-					else
-						g_next_dispatch_length = (value_t)*(unsigned long *)p;
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
 				}
-				else if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("ULONG[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%u, ", (*(unsigned long **)p)[i]);
-					logPrintf("%u\n", (*(unsigned long **)p)[i]);
-					g_next_dispatch_length = 0;
-				}
+				logPrintf("LONG[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%d, ", (*(long **)p)[i]);
+				logPrintf("%d\n", (*(long **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("LONG: %d\n", *(long *)p);
+			break;
+		case ARG_TYPE_UINT32:
+			if(type & ARGSPECLENRELATED)
+			{
+				if(type & ARGSPECPOINTER)
+					g_next_dispatch_length = (value_t)**(unsigned long **)p;
 				else
-					logPrintf("ULONG: %u\n", *(unsigned long *)p);
-				break;
+					g_next_dispatch_length = (value_t)*(unsigned long *)p;
+			}
+			else if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
+				{
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
+				}
+				logPrintf("ULONG[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%u, ", (*(unsigned long **)p)[i]);
+				logPrintf("%u\n", (*(unsigned long **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("ULONG: %u\n", *(unsigned long *)p);
+			break;
 #ifdef _WIN64
-			//FIXME This probably doesn't work and won't be used anyway...:
-			case ARG_TYPE_UINT64:
-				if(arg->type & ARGSPECLENRELATED)
-				{
-					if(arg->type & ARGSPECPOINTER)
-						g_next_dispatch_length = (value_t)**(unsigned long long **)p;
-					else
-						g_next_dispatch_length = (value_t)*(unsigned long long *)p;
-				}
-				else if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("ULONGLONG[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%u, ", (*(unsigned long long **)p)[i]);
-					logPrintf("%u\n", (*(unsigned long long **)p)[i]);
-					g_next_dispatch_length = 0;
-				}
+		//FIXME This probably doesn't work and won't be used anyway...:
+		case ARG_TYPE_UINT64:
+			if(type & ARGSPECLENRELATED)
+			{
+				if(type & ARGSPECPOINTER)
+					g_next_dispatch_length = (value_t)**(unsigned long long **)p;
 				else
-					logPrintf("ULONGLONG: %u\n", *(unsigned long long *)p);
-				break;
+					g_next_dispatch_length = (value_t)*(unsigned long long *)p;
+			}
+			else if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
+				{
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
+				}
+				logPrintf("ULONGLONG[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%u, ", (*(unsigned long long **)p)[i]);
+				logPrintf("%u\n", (*(unsigned long long **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("ULONGLONG: %u\n", *(unsigned long long *)p);
+			break;
 #endif //_WIN64
-			case ARG_TYPE_PTR:
-				if(arg->type & ARGSPECLENRELATED)
-					logPrintf("WARNING: length related pointer to pointer ?!?\n");
+		case ARG_TYPE_PTR:
+			if(type & ARGSPECLENRELATED)
+				logPrintf("WARNING: length related pointer to pointer ?!?\n");
 #ifdef _WIN64
-				if(arg->type & ARGSPECPOINTER)
+			if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("PTR[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-					{
-						temp = (*(unsigned long long **)p)[i];
-						logPrintf("%08x%08x, ", PRINTARG64(temp));
-					}
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
+				}
+				logPrintf("PTR[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+				{
 					temp = (*(unsigned long long **)p)[i];
-					logPrintf("%08x%08x\n", PRINTARG64(temp));
-					g_next_dispatch_length = 0;
+					logPrintf("%08x%08x, ", PRINTARG64(temp));
 				}
-				else
-				{
-					temp = *(unsigned long long *)p;
-					logPrintf("PTR: %08x%08x\n", PRINTARG64(temp));
-				}
+				temp = (*(unsigned long long **)p)[i];
+				logPrintf("%08x%08x\n", PRINTARG64(temp));
+				g_next_dispatch_length = 0;
+			}
+			else
+			{
+				temp = *(unsigned long long *)p;
+				logPrintf("PTR: %08x%08x\n", PRINTARG64(temp));
+			}
 #else
-				if(arg->type & ARGSPECPOINTER)
+			if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("PTR[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%08x, ", (*(unsigned long **)p)[i]);
-					logPrintf("%08x\n", (*(unsigned long **)p)[i]);
-					g_next_dispatch_length = 0;
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
 				}
-				else
-					logPrintf("PTR: %08x\n", *(unsigned long *)p);
+				logPrintf("PTR[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%08x, ", (*(unsigned long **)p)[i]);
+				logPrintf("%08x\n", (*(unsigned long **)p)[i]);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("PTR: %08x\n", *(unsigned long *)p);
 #endif //_WIN64
-				break;
-			case ARG_TYPE_CHAR:
-				if(arg->type & ARGSPECPOINTER)
+			break;
+		case ARG_TYPE_CHAR:
+			if(type & ARGSPECPOINTER)
+			{
+				logData((unsigned char *)p, g_next_dispatch_length);			//but it's a char not an unsigned char ?!?! FIXME
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("CHAR %c", *(char *)p);
+			break;
+		case ARG_TYPE_UCHAR:
+			if(type & ARGSPECPOINTER)
+			{
+				logData((unsigned char *)p, g_next_dispatch_length);
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("UCHAR %c", *(unsigned char *)p);
+			break;
+		case ARG_TYPE_BOOL:
+			if(type & ARGSPECPOINTER)
+			{
+				if(!g_next_dispatch_length)
 				{
-					logData((unsigned char *)p, g_next_dispatch_length);			//but it's a char not an unsigned char ?!?! FIXME
-					g_next_dispatch_length = 0;
+					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
 				}
-				else
-					logPrintf("CHAR %c", *(char *)p);
-				break;
-			case ARG_TYPE_UCHAR:
-				if(arg->type & ARGSPECPOINTER)
-				{
-					logData((unsigned char *)p, g_next_dispatch_length);
-					g_next_dispatch_length = 0;
-				}
-				else
-					logPrintf("UCHAR %c", *(unsigned char *)p);
-				break;
-			case ARG_TYPE_BOOL:
-				if(arg->type & ARGSPECPOINTER)
-				{
-					if(!g_next_dispatch_length)
-					{
-						logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-						g_next_dispatch_length = 8;
-					}
-					logPrintf("BOOL[]: ");
-					for(i = 0; i < g_next_dispatch_length - 1; i++)
-						logPrintf("%s, ", ((*(bool **)p)[i] ? "true" : "false"));
-					logPrintf("%s\n", ((*(bool **)p)[i] ? "true" : "false"));
-					g_next_dispatch_length = 0;
-				}
-				else
-					logPrintf("BOOL %s\n", (*(bool *)p ? "true" : "false"));
-				break;
-			case ARG_TYPE_WCHAR:
-				if(arg->type & ARGSPECPOINTER)
-				{
-					logwData((unsigned char *)p, g_next_dispatch_length * 2);			//make sure size is always per type size... 
-					g_next_dispatch_length = 0;
-				}
-				else
-					logwPrintf(L"WCHAR %c", *(wchar_t *)p);
-				break;
-			case ARG_TYPE_STR:
-				logPrintf("STR: %s\n", *(char **)p);
-				break;
-			case ARG_TYPE_WSTR:
-				//FIXME FIXME FIXME
-				logwPrintf(L"WSTR: %s\n", *(wchar_t **)p);
-				break;
-			case ARG_TYPE_IP4:
-				logPrintf("IP4: %08x\n", *(unsigned long *)p);
-				break;
-			case ARG_TYPE_IP6:
-				logPrintf("IP6?!?!: %08x\n", *(unsigned long *)p);
-				break;
-			default:
-				logPrintf("WARNING: arg dispatch unhandled type\n");
-				break;
-		}
-
+				logPrintf("BOOL[]: ");
+				for(i = 0; i < g_next_dispatch_length - 1; i++)
+					logPrintf("%s, ", ((*(bool **)p)[i] ? "true" : "false"));
+				logPrintf("%s\n", ((*(bool **)p)[i] ? "true" : "false"));
+				g_next_dispatch_length = 0;
+			}
+			else
+				logPrintf("BOOL %s\n", (*(bool *)p ? "true" : "false"));
+			break;
+		case ARG_TYPE_WCHAR:
+			if(type & ARGSPECPOINTER)
+			{
+				logwData((unsigned char *)p, g_next_dispatch_length * 2);			//make sure size is always per type size... 
+				g_next_dispatch_length = 0;
+			}
+			else
+				logwPrintf(L"WCHAR %c", *(wchar_t *)p);
+			break;
+		case ARG_TYPE_STR:
+			logPrintf("STR: %s\n", *(char **)p);
+			break;
+		case ARG_TYPE_WSTR:
+			//FIXME FIXME FIXME
+			logwPrintf(L"WSTR: %s\n", *(wchar_t **)p);
+			break;
+		case ARG_TYPE_IP4:
+			logPrintf("IP4: %08x\n", *(unsigned long *)p);
+			break;
+		case ARG_TYPE_IP6:
+			logPrintf("IP6?!?!: %08x\n", *(unsigned long *)p);
+			break;
+		default:
+			logPrintf("WARNING: arg dispatch unhandled type\n");
+			break;
 	}
 }
 
@@ -672,7 +670,7 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 						return -1;
 					}
 				}
-				__debugbreak();
+				//__debugbreak();
 				if(unhook)
 				{
 					if(!hfstruct->origfunc)

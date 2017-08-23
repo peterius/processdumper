@@ -518,6 +518,7 @@ ffl_onemoretime:
 	i = hfstruct->arg;
 	while(i)
 	{
+		logPrintf("i %p %p\n", i, i->next_spec);
 		if(i->deref_len)
 		{
 			j = hfstruct->arg;
@@ -701,6 +702,7 @@ int parse(char * data, unsigned int size)
 				{
 					fixup_function_lengths(hfstruct);
 					leave_scope();
+					logPrintf("hfstruct arg %p\n", hfstruct->arg);
 					hfstruct = NULL;
 					functionname = NULL;
 					arg_spec = NULL;
@@ -722,7 +724,6 @@ int parse(char * data, unsigned int size)
 						logPrintf("XML parse error: nested arg with no struct type\n");
 						return -1;
 					}
-					cleanup_arg_spec_deref(proto);
 					proto = NULL;
 					leave_scope();
 				}
@@ -733,7 +734,6 @@ int parse(char * data, unsigned int size)
 						logPrintf("XML parse error: nested return with no struct type\n");
 						return -1;
 					}
-					cleanup_arg_spec_deref(proto);
 					proto = NULL;
 					is_return_value = false;
 					leave_scope();
@@ -754,7 +754,6 @@ int parse(char * data, unsigned int size)
 							return -1;
 						}
 						proto_end = get_prev_arg_spec_deref(proto, proto_end);
-						cleanup_arg_spec_deref(proto_end->deref);
 						proto_end->deref = NULL;
 					}
 					leave_scope();
@@ -903,6 +902,8 @@ int parse(char * data, unsigned int size)
 						hfstruct->origlibname = libn;
 						hfstruct->origname = functionname;
 						hfstruct->origordinal = ordinal;
+						hfstruct->arg = NULL;
+						arg_spec = NULL;
 
 						if(*d == '/')
 						{
@@ -1125,7 +1126,11 @@ parse_handletype:
 				if(CURRENT_SCOPE->defines == scope::type)			//still defining...
 					goto parse_handletype;
 				else if(arg_spec)
+				{
+					//FIXME FIXME FIXME there's no check here for if an element is defined outside
+					//of an arg... i.e., a "/>" at the end of the arg and we die on the lookup
 					goto parse_handlearg;
+				}
 				else
 				{
 					logPrintf("XML parse error: element element not within type or arg\n");
@@ -1229,7 +1234,7 @@ parse_handlearg:
 							t = lookup_type(argname, CURRENT_SCOPE_ONLY);
 							if(!t)
 							{
-								logPrintf("XML parse error: unspecified type arg not in structure\n");
+								logPrintf("XML parse error: unspecified type %s arg not in structure\n", argname);
 								return -1;
 							}
 						}
@@ -1289,7 +1294,10 @@ parse_handlearg:
 							{
 								arg_spec = copy_arg_spec_chain(proto);
 								ad = deref_end(hfstruct->arg);
+								ad->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+								ad = ad->deref;
 							}
+							logPrintf("starting arg spec %p\n", arg_spec);
 							arg_spec->next_spec = NULL;
 							hfstruct->arg = arg_spec;
 						}
@@ -1307,6 +1315,7 @@ parse_handlearg:
 								arg_spec->next_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
 								ad = arg_spec->next_spec;
 							}
+							logPrintf("adding arg spec %p\n", arg_spec->next_spec);
 							arg_spec = arg_spec->next_spec;
 							arg_spec->next_spec = NULL;
 						}
@@ -1318,10 +1327,10 @@ parse_handlearg:
 							ad->offset = (ARGUMENT_SIZE * functionargument_index++);
 						ad->arg_name = argname;
 						argname = NULL;
-						ad->deref_len = (argtypep)argsize;
+						arg_spec->deref_len = (argtypep)argsize;				//make it easy for fixup_function_lengths
 						ad->deref = NULL;
 						argsize = NULL;
-						ad->type = a;
+						arg_spec->type = a;			//i.e., the eventual dereferenced type... 
 					}
 				}
 				else
@@ -1338,7 +1347,7 @@ parse_handlearg:
 						t = lookup_type(argname, CURRENT_SCOPE_ONLY);
 						if(!t)
 						{
-							logPrintf("XML parse error: unspecified type arg not in structure\n");
+							logPrintf("XML parse error: unspecified type %s arg not in structure\n", argname);
 							return -1;
 						}
 					}
@@ -1359,72 +1368,91 @@ parse_handlearg:
 						return -1;
 					}
 					//only log if it's a pointer and not a raw structure which would just be used for scope
-					if(t->basetype == ARG_TYPE_PTR && (log == tru || precall == tru || postcall == tru))
+					if(t->basetype == ARG_TYPE_PTR)
 					{
+						struct arg_spec * ad;
 						a = 0;
-						if(precall != fase && !is_return_value)
-							a |= ARGSPECOFPRECALLINTEREST;
-						if(postcall == tru || (is_return_value && postcall != fase))
-							a |= ARGSPECOFPOSTCALLINTEREST;
-						if(is_return_value)
-							a |= ARGSPECRETURN_VALUE;
-						if(t->basetype > 20)
-							logPrintf("XML parse error: high base type %d\n", t->basetype);
-						if(t->basetype == ARG_TYPE_PTR)
+						if(log == tru || precall == tru || postcall == tru)
 						{
-							a |= t->basetype_ref->basetype;
-							a |= ARGSPECPOINTER;
+							if(precall != fase && !is_return_value)
+								a |= ARGSPECOFPRECALLINTEREST;
+							if(postcall == tru || (is_return_value && postcall != fase))
+								a |= ARGSPECOFPOSTCALLINTEREST;
+							if(is_return_value)
+								a |= ARGSPECRETURN_VALUE;
+							if(t->basetype > 20)
+								logPrintf("XML parse error: high base type %d\n", t->basetype);
+							if(t->basetype == ARG_TYPE_PTR)
+							{
+								a |= t->basetype_ref->basetype;
+								a |= ARGSPECPOINTER;
+							}
+							else
+								a |= t->basetype;
 						}
-						else
-							a |= t->basetype;
-						if(!arg_spec)
-						{
-							arg_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
-							arg_spec->next_spec = NULL;
-							hfstruct->arg = arg_spec;
-						}
-						else
-						{
-							arg_spec->next_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
-							arg_spec = arg_spec->next_spec;
-							arg_spec->next_spec = NULL;
-						}
+						logPrintf("nested arg %s %04x\n", argname ? argname : "no name", a);
+						ad = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+						ad->next_spec = NULL;
 						if(CURRENT_SCOPE->defines == scope::type)
-							arg_spec->offset = t->offset;
+							ad->offset = t->offset;
 						else if(is_return_value)
-							arg_spec->offset = 0;
+							ad->offset = 0;
 						else
-							arg_spec->offset = (ARGUMENT_SIZE * functionargument_index++);
-						arg_spec->arg_name = argname;
-						argname = NULL;
-						arg_spec->deref_len = (argtypep)argsize;
-						arg_spec->deref = NULL;
-						argsize = NULL;
-						arg_spec->type = a;
-					}
-					//setup the additional arg_spec deref chain for contained elements... 
-					if(t->basetype == ARG_TYPE_PTR)		//if its a structure and not a pointer, like nested structures then no deref, just track offsets
-					{
-						arg_spec = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
-						arg_spec->next_spec = NULL;
-						if(CURRENT_SCOPE->defines == scope::type)
-							arg_spec->offset = t->offset;
-						else if(is_return_value)
-							arg_spec->offset = 0;
-						else
-							arg_spec->offset = (ARGUMENT_SIZE * functionargument_index++);
+							ad->offset = (ARGUMENT_SIZE * functionargument_index++);
 						/* FIXME FIXME FIXME we might want the arg_name but we'd have to make a copy of it... */
-						arg_spec->arg_name = NULL;
-						arg_spec->deref_len = NULL;
-						arg_spec->type = ARG_TYPE_PTR;
+						ad->arg_name = NULL;
+						ad->deref_len = NULL;
+						ad->type = ARG_TYPE_PTR;
 						/* It has to be arg_type_ptr because we don't know what will be caught within it, and we need
-						 * a deref regardless... */
-						arg_spec->deref = NULL;
+						 * a deref regardless... what about structures as offsets without deref except, they'd be
+						 * a deref from the... oh I guess we don't pass structures as arguments... still FIXME FIXME FIXME */
+						ad->deref = NULL;
+						if(a)			//we're logging this:
+						{
+							if(!arg_spec)
+							{
+								if(!proto)
+								{
+									arg_spec = ad;
+								}
+								else
+								{
+									arg_spec = copy_arg_spec_chain(proto);
+									deref_end(arg_spec)->deref = ad;
+								}
+								logPrintf("starting arg_spec chain: %p arg_spec\n", arg_spec);
+								arg_spec->next_spec = NULL;
+								hfstruct->arg = arg_spec;
+							}
+							else
+							{
+								if(proto)
+								{
+									arg_spec->next_spec = copy_arg_spec_chain(proto);
+									deref_end(arg_spec->next_spec)->deref = ad;
+								}
+								else
+								{
+									arg_spec->next_spec = ad;
+								}
+								logPrintf("adding arg_spec chain: %p arg_spec\n", arg_spec->next_spec);
+								arg_spec = arg_spec->next_spec;
+								arg_spec->next_spec = NULL;
+							}
+							//make it easy for fixup_function_lengths
+							arg_spec->arg_name = argname;
+							argname = NULL;
+							arg_spec->deref_len = (argtypep)argsize;
+							argsize = NULL;
+							arg_spec->type = a;
+						}
+						//setup the additional arg_spec deref chain for contained elements... 
+						//if its a structure and not a pointer, like nested structures then no deref, just track offsets
 						if(proto)
 						{
 							// this is an element opening tag:
-							proto_end->deref = arg_spec;
-							proto_end = arg_spec;
+							proto_end->deref = ad;
+							proto_end = ad;
 							/* FIXME we could remove proto_end and just use deref_end to look it up at the time... it's kind
 							 * of one more variable to keep track of but whatever... */
 						}
@@ -1462,6 +1490,7 @@ parse_handlearg:
 					logPrintf("XML parse error: return element outside of function\n");
 					return -1;
 				}
+				//FIXME FIXME FIXME should check to make sure we're not inside of an <arg> </arg>
 				d += 6;
 				whitespace(&d);
 				l = (int)strlen_0("return value");
