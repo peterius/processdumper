@@ -710,6 +710,8 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 				{
 					if(!hfstruct->origfunc)
 						logPrintf("ERROR: no original function for unhooking\n");
+					else if(*(char **)addresstable == (char *)hfstruct->origfunc)
+					{}			
 					else
 					{
 						origfunc = LockHook((char *)addresstable, (char *)hfstruct->origfunc);
