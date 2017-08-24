@@ -524,11 +524,11 @@ ffl_onemoretime:
 			j = hfstruct->arg;
 			while(j)
 			{
-				if(j->arg_name && (j->arg_name, (char *)i->deref_len) == 0)
+				if(j->arg_name && strcmp_0(j->arg_name, (char *)i->deref_len) == 0)
 				{
 					insert_arg_spec(hfstruct->arg, i, j);
 					j->type |= ARGSPECLENRELATED;
-					free_0(i->deref_len);
+					free_0(i->deref_len);				//this is the name string for the reference
 					i->deref_len = NULL;
 					goto ffl_onemoretime;
 				}
@@ -725,6 +725,7 @@ int parse(char * data, unsigned int size)
 						return -1;
 					}
 					proto = NULL;
+					is_an_element = false;
 					leave_scope();
 				}
 				else if(wstrncmp(d, "return", 6) == 0)
@@ -736,6 +737,7 @@ int parse(char * data, unsigned int size)
 					}
 					proto = NULL;
 					is_return_value = false;
+					is_an_element = false;
 					leave_scope();
 				}
 				else if(wstrncmp(d, "element", 7) == 0)
@@ -755,6 +757,8 @@ int parse(char * data, unsigned int size)
 						}
 						proto_end = get_prev_arg_spec_deref(proto, proto_end);
 						proto_end->deref = NULL;
+						if(proto == proto_end)
+							is_an_element = false;			//shouldn't be necessary here... since we're still in an arg/return
 					}
 					leave_scope();
 				}
@@ -1146,13 +1150,14 @@ parse_handletype:
 					return -1;
 				}
 				d += 3;
-				is_return_value = false;			// is this enough?
+				is_an_element = false;
 parse_handlearg:
 				whitespace(&d);
 				//defaults
 				log = unspecified;
 				precall = unspecified;
 				postcall = unspecified;
+				logPrintf("el %d ret %d proto %p\n", is_an_element, is_return_value, proto);
 				while(d < end && *d != '/')
 				{
 					if(*d == '>')
@@ -1319,9 +1324,9 @@ parse_handlearg:
 							arg_spec = arg_spec->next_spec;
 							arg_spec->next_spec = NULL;
 						}
-						if(CURRENT_SCOPE->defines == scope::type)
+						if(CURRENT_SCOPE->defines == scope::type || CURRENT_SCOPE->defines == scope::type_closed)	//i.e., not func arg level
 							ad->offset = t->offset;
-						else if(is_return_value)
+						else if(is_return_value)		//only one return value
 							ad->offset = 0;
 						else
 							ad->offset = (ARGUMENT_SIZE * functionargument_index++);
@@ -1331,7 +1336,10 @@ parse_handlearg:
 						ad->deref = NULL;
 						argsize = NULL;
 						arg_spec->type = a;			//i.e., the eventual dereferenced type... 
+						logPrintf("\toffset %d %d\n", arg_spec->offset, ad->offset);
 					}
+					if(is_return_value && !is_an_element)
+						is_return_value = false;
 				}
 				else
 				{
@@ -1393,16 +1401,15 @@ parse_handlearg:
 						logPrintf("nested arg %s %04x\n", argname ? argname : "no name", a);
 						ad = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
 						ad->next_spec = NULL;
-						if(CURRENT_SCOPE->defines == scope::type)
+						if(CURRENT_SCOPE->defines == scope::type || CURRENT_SCOPE->defines == scope::type_closed)		//i.e., not func arg level
 							ad->offset = t->offset;
-						else if(is_return_value)
+						else if(is_return_value)		// only one ret value
 							ad->offset = 0;
-						else
-							ad->offset = (ARGUMENT_SIZE * functionargument_index++);
+
 						/* FIXME FIXME FIXME we might want the arg_name but we'd have to make a copy of it... */
 						ad->arg_name = NULL;
 						ad->deref_len = NULL;
-						ad->type = ARG_TYPE_PTR;
+						ad->type = ARG_TYPE_PTR;			//FIXME FIXME this is tossed... 
 						/* It has to be arg_type_ptr because we don't know what will be caught within it, and we need
 						 * a deref regardless... what about structures as offsets without deref except, they'd be
 						 * a deref from the... oh I guess we don't pass structures as arguments... still FIXME FIXME FIXME */
@@ -1458,9 +1465,11 @@ parse_handlearg:
 						}
 						else
 						{
-							proto = arg_spec;
+							proto = copy_arg_spec_chain(arg_spec);
+							proto->offset = (ARGUMENT_SIZE * functionargument_index++);								//new proto is arg level
 							proto_end = proto;
 						}
+						logPrintf("\toffset %d %d\n", arg_spec->offset, ad->offset);
 					}
 
 				}
@@ -1498,6 +1507,7 @@ parse_handlearg:
 				memcpy_0(argname, "return value", l * sizeof(char));
 				argname[l] = 0x00;
 				is_return_value = true;
+				is_an_element = false;
 				goto parse_handlearg;
 			}
 			else if(wstrncmp(d, "success", 7) == 0)

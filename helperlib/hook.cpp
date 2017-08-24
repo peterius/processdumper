@@ -22,6 +22,9 @@
 #include "xmlhookloader.h"
 #include "argspecutil.h"
 
+ //#define LOGLIBRARYIMPORTS
+ //#define IMPORTTABLE_DEBUG
+
 unsigned long dispatch_magic = 0x66555467;
 strcmpPtr strcmp_0;
 stricmpPtr stricmp_0;
@@ -69,7 +72,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 #else
 	logPrintf("%08x called %s\n", curhook_origret, curhook_hfstruct->origname);
 #endif //_WIN64
-
+	//__debugbreak();
 	g_next_dispatch_length = 0;
 	arg_spec = curhook_hfstruct->arg;
 	while(arg_spec)
@@ -123,7 +126,7 @@ int isofprecallinterest(argtypep arg)
 {
 	if(!arg)
 		return 0;
-	arg = deref_end(arg);
+	//arg = deref_end(arg);
 	if(arg->type & ARGSPECOFPRECALLINTEREST)
 		return 1;
 	return 0;
@@ -133,7 +136,7 @@ int isofpostcallinterest(argtypep arg)
 {
 	if(!arg)
 		return 0;
-	arg = deref_end(arg);
+	//arg = deref_end(arg);
 	if(arg->type & ARGSPECOFPOSTCALLINTEREST)
 		return 1;
 	return 0;
@@ -152,18 +155,31 @@ void dispatch_arg(void * p, argtypep arg)
 	//__debugbreak();
 	/* At some point, I probably want to use the ->type type space
 	 * to do a lookup where we can store some variable names from the XML FIXME */
-
+	try
+	{
 	type = arg->type;
+	logPrintf("p %p deref %p offset %d\n", p, arg->deref, arg->offset);
 	p = (char *)p + arg->offset;
+	
 	while(arg->deref)
 	{
+		logPrintf("...p %p deref %p offset %d\n", p, arg->deref, arg->offset);
 		arg = arg->deref;
-		p = (char *)p + arg->offset;
+		p = *(char **)p + arg->offset;
 	}
 
 	if(type & ARGSPECARRAY)
 		logPrintf("WARNING: dispatch array argument unhandled!\n");
-
+	if(g_next_dispatch_length > 1000)
+	{
+		logPrintf("High dispatch, limiting %d\n", g_next_dispatch_length);
+		g_next_dispatch_length = 1000;
+	}
+	if(g_next_dispatch_length < 0)
+	{
+		logPrintf("sigh %d\n", g_next_dispatch_length);
+		g_next_dispatch_length = 0;
+	}
 	//final data
 	switch(type & ARGSPECTYPEMASK)
 	{
@@ -182,6 +198,7 @@ void dispatch_arg(void * p, argtypep arg)
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					g_next_dispatch_length = 8;
 				}
+				logPrintf("CHAR[]: ");
 				for(i = 0; i < g_next_dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(char **)p)[i]);
 				logPrintf("%d\n", (*(char **)p)[i]);
@@ -384,7 +401,12 @@ void dispatch_arg(void * p, argtypep arg)
 		case ARG_TYPE_CHAR:
 			if(type & ARGSPECPOINTER)
 			{
-				logData((unsigned char *)p, g_next_dispatch_length);			//but it's a char not an unsigned char ?!?! FIXME
+				if(!g_next_dispatch_length)
+				{
+					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
+				}
+				logData(*(unsigned char **)p, g_next_dispatch_length);			//but it's a char not an unsigned char ?!?! FIXME
 				g_next_dispatch_length = 0;
 			}
 			else
@@ -393,7 +415,12 @@ void dispatch_arg(void * p, argtypep arg)
 		case ARG_TYPE_UCHAR:
 			if(type & ARGSPECPOINTER)
 			{
-				logData((unsigned char *)p, g_next_dispatch_length);
+				if(!g_next_dispatch_length)
+				{
+					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
+					g_next_dispatch_length = 8;
+				}
+				logData(*(unsigned char **)p, g_next_dispatch_length);
 				g_next_dispatch_length = 0;
 			}
 			else
@@ -419,7 +446,7 @@ void dispatch_arg(void * p, argtypep arg)
 		case ARG_TYPE_WCHAR:
 			if(type & ARGSPECPOINTER)
 			{
-				logwData((unsigned char *)p, g_next_dispatch_length * 2);			//make sure size is always per type size... 
+				logwData(*(unsigned char **)p, g_next_dispatch_length * 2);			//make sure size is always per type size... 
 				g_next_dispatch_length = 0;
 			}
 			else
@@ -433,7 +460,7 @@ void dispatch_arg(void * p, argtypep arg)
 			logwPrintf(L"WSTR: %s\n", *(wchar_t **)p);
 			break;
 		case ARG_TYPE_IP4:
-			logPrintf("IP4: %08x\n", *(unsigned long *)p);
+			logPrintf("IP4: %d.%d.%d.%d\n", ((unsigned char *)p)[0], ((unsigned char *)p + 1)[0], ((unsigned char *)p + 2)[0], ((unsigned char *)p + 3)[0]);
 			break;
 		case ARG_TYPE_IP6:
 			logPrintf("IP6?!?!: %08x\n", *(unsigned long *)p);
@@ -441,6 +468,11 @@ void dispatch_arg(void * p, argtypep arg)
 		default:
 			logPrintf("WARNING: arg dispatch unhandled type\n");
 			break;
+	}
+	}
+	catch(...)
+	{
+		logPrintf("EXCEPTION\n");
 	}
 }
 
@@ -487,6 +519,7 @@ int hook_imports(bool unhook)
 
 	do
 	{
+#ifdef LOGLIBRARYIMPORTS
 		logwPrintf(L"\n\n\tMODULE NAME:\t%s", me32.szModule);
 		logwPrintf(L"\n\tExecutable:\t\t%s", me32.szExePath);
 		logPrintf("\n\tProcess ID:\t%08x", me32.th32ProcessID);
@@ -498,13 +531,7 @@ int hook_imports(bool unhook)
 		logPrintf("\n\tBase address:\t%08x", (DWORD)me32.modBaseAddr);
 #endif //_WIN64
 		logPrintf("\n\tBase size:\t%d\n", me32.modBaseSize);
-		/*_tprintf(TEXT("\n\n     MODULE NAME:     %s"), me32.szModule);
-		_tprintf(TEXT("\n     Executable     = %s"), me32.szExePath);
-		_tprintf(TEXT("\n     Process ID     = 0x%08X"), me32.th32ProcessID);
-		_tprintf(TEXT("\n     Ref count (g)  = 0x%04X"), me32.GlblcntUsage);
-		_tprintf(TEXT("\n     Ref count (p)  = 0x%04X"), me32.ProccntUsage);
-		_tprintf(TEXT("\n     Base address   = 0x%08X"), (DWORD)me32.modBaseAddr);
-		_tprintf(TEXT("\n     Base size      = %d"), me32.modBaseSize);*/
+#endif //LOGLIBRARYIMPORTS
 
 		hook_import_table((char *)me32.modBaseAddr, me32.modBaseSize, unhook);
 
@@ -513,8 +540,6 @@ int hook_imports(bool unhook)
 	CloseHandle_0(th32);
 	return 0;
 }
-
-//#define IMPORTTABLE_DEBUG
 
 int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 {
@@ -568,11 +593,21 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 
 	
 	if(!peheader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size)
-		{ logPrintf("No imports\n"); return 0; }
+	{
+#ifdef LOGLIBRARYIMPORTS
+		logPrintf("No imports\n");
+#endif //LOGLIBRARYIMPORTS	
+		return 0;
+	}
 
 	importdir = (IMAGE_IMPORT_DESCRIPTOR *)(baseaddr + peheader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
 	if(!importdir)
-		{ logPrintf("No import table\n"); return 0; }
+	{
+#ifdef LOGLIBRARYIMPORTS
+		logPrintf("No import table\n");
+#endif //LOGLIBRARYIMPORTS
+		return 0;
+	}
 		
 	tablesize = peheader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
 	for(i = 0; i < tablesize; i++)
@@ -679,12 +714,12 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 					{
 						origfunc = LockHook((char *)addresstable, (char *)hfstruct->origfunc);
 						if(origfunc != hfstruct->hook)
-							logPrintf("WARNING: something else hooked this function ?!?\n");
+							logPrintf("WARNING: something else hooked this function %p ?!?\n", origfunc);
 					}
 				}
 				else
 					origfunc = LockHook((char *)addresstable, hfstruct->hook);
-				if(hfstruct->origfunc && origfunc != (char *)hfstruct->origfunc)
+				if(!unhook && hfstruct->origfunc && origfunc != (char *)hfstruct->origfunc)
 #ifdef _WIN64
 					logPrintf("WARNING: Overwriting hook %08x%08x for %s with %08x%08x\n", PRINTARG64(hfstruct->origfunc), hfstruct->origname, PRINTARG64(origfunc));
 #else

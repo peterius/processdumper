@@ -64,16 +64,18 @@ void close_logging_file(void)
 	_fclose(loggingfile);
 }
 
-#define CHARFORMAT(x)		((x > 0x1f && x < 0x7f) ? x : 0x2e)
+#define CHARFORMAT(x)		(unsigned char)((x > 0x1f && x < 0x7f) ? x : 0x2e)
 
 void logData(unsigned char * data, unsigned int size)
 {
 	char line[80];
 	unsigned int i, s;
 
+	_sprintf(line, "Data[%08x]:\n", size);
+	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	if(size > 0x10)
 	{
-		for(i = 0; i < size - 0x10; i++)
+		for(i = 0; i < size - 0x10; i += 0x10)
 		{
 			_sprintf(line, "%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
 				data[i], data[i + 1], data[i + 2], data[i + 3], data[i + 4], data[i + 5], data[i + 6], data[i + 7],
@@ -119,9 +121,11 @@ void logwData(unsigned char * data, unsigned int size)
 {
 	unsigned int i, s, k;
 
+	_sprintf(line, "WData[%08x]:\n", size);
+	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	if(size > 0x10)
 	{
-		for(i = 0; i < size - 0x10; i++)
+		for(i = 0; i < size - 0x10; i += 0x10)
 		{
 			logwPrintf(L"%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %c%c%c%c%c%c%c%c\n",
 				data[i], data[i + 1], data[i + 2], data[i + 3], data[i + 4], data[i + 5], data[i + 6], data[i + 7],
