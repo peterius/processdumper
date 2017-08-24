@@ -75,7 +75,7 @@ void logData(unsigned char * data, unsigned int size)
 	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	if(size > 0x10)
 	{
-		for(i = 0; i < size - 0x10; i += 0x10)
+		for(i = 0; i <= size - 0x10; i += 0x10)
 		{
 			_sprintf(line, "%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
 				data[i], data[i + 1], data[i + 2], data[i + 3], data[i + 4], data[i + 5], data[i + 6], data[i + 7],
@@ -85,6 +85,8 @@ void logData(unsigned char * data, unsigned int size)
 			_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 		}
 	}
+	if(i == size)
+		return;
 	s = i;
 	while(i < size - 4)
 	{
@@ -101,17 +103,21 @@ void logData(unsigned char * data, unsigned int size)
 	for(i; i < s + 0x10; i++)
 	{
 		if(i % 4 == 0)
-			_sprintf(line, "  ");
+			_sprintf(line, "   ");
 		else
-			_sprintf(line, " ");
+			_sprintf(line, "  ");
 		_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	}
+	_sprintf(line, " ");
+	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	while(s < size)
 	{
 		_sprintf(line, "%c", CHARFORMAT(data[s]));
 		_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 		s++;
 	}
+	_sprintf(line, "\n");
+	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 }
 
 // ?? FIXME
