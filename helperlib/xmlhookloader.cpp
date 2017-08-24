@@ -1334,6 +1334,7 @@ parse_handlearg:
 						argname = NULL;
 						arg_spec->deref_len = (argtypep)argsize;				//make it easy for fixup_function_lengths
 						ad->deref = NULL;
+						ad->next_spec = NULL;
 						argsize = NULL;
 						arg_spec->type = a;			//i.e., the eventual dereferenced type... 
 						logPrintf("\toffset %d %d\n", arg_spec->offset, ad->offset);
