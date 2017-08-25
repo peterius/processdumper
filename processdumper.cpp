@@ -1217,7 +1217,7 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	char * call;
 
 	get_next_section(code, &section_address, &section_data, &section_size);
-	baseaddress = (char *)VirtualAllocEx(pH, NULL, 0x10000, MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+	baseaddress = (char *)VirtualAllocEx(pH, NULL, 0x20000, MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 	if(!baseaddress)
 	{
 		fprintf(stderr, "inject process VirtualAllocEx failed (%d)\n", GetLastError());
@@ -1232,7 +1232,7 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	baseaddress = (char *)VirtualAllocEx(pH, section_address, section_size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if(!baseaddress)
 	{
-		fprintf(stderr, "inject process VirtualAllocEx failed (%d)\n", GetLastError());
+		fprintf(stderr, "inject process VirtualAllocEx 2 failed (%d)\n", GetLastError());
 		CloseHandle(pH);
 		return -1;
 	}
@@ -1352,7 +1352,7 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 		baseaddress = (char *)VirtualAllocEx(pH, section_address, section_size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 		if(!baseaddress)
 		{
-			fprintf(stderr, "inject process VirtualAllocEx failed (%d)\n", GetLastError());
+			fprintf(stderr, "inject process VirtualAllocEx 3 failed (%d)\n", GetLastError());
 			CloseHandle(pH);
 			return -1;
 		}
