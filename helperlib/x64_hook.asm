@@ -21,7 +21,9 @@ PUBLIC call_orig_func_as_if
 PUBLIC cleanup_hooking
 
 _DATA SEGMENT
-	saveretvalue dq 0
+	saveretvalue    dq 0
+	saversi			dq 0
+	saverdi			dq 0
 _DATA ENDS
 
 _TEXT SEGMENT
@@ -72,6 +74,8 @@ call_orig_func_as_if PROC
 	mov saveretvalue,r10
 	mov r10,rdx
 	mov rsp,rcx
+	mov saversi,rsi			; because our caller uses this to cache something...
+	mov saverdi,rdi
 	pop rdi
 	pop rsi
 	pop rbp
@@ -87,6 +91,8 @@ call_orig_func_as_if PROC
 	push rax		; the return value
 	mov rax,rsp		; return stack with return value
 	sub rsp,30h		; for good luck!
+	mov rsi,saversi
+	mov rdi,saverdi
 	jmp saveretvalue
 call_orig_func_as_if ENDP
 
