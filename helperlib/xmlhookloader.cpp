@@ -110,6 +110,7 @@ value_t get_quoted_numeric_value(char ** d, bool * neg);
 s_bool get_quoted_boolean(char ** d);
 
 char * g_xmlfile_buffer;
+#define BASETYPES					19
 char * base_type_names[] = { "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t", "void *", "char", "unsigned char", "wchar_t" };
 
 char len_type[] = "size_t";			//is this appropriate, I just want to use it to signal buffer lengths... FIXME
@@ -134,7 +135,7 @@ void create_basic_types(void)
 
 	scope_list[0]->name = NULL;
 	scope_list[0]->defines = scope::global_or_unknown;
-	scope_list[0]->type_definitions = 19;
+	scope_list[0]->type_definitions = BASETYPES;
 	scope_list[0]->type_definition = (struct type_def **)malloc_0(scope_list[0]->type_definitions * sizeof(struct type_def *));
 
 	for(i = 0; i < 12; i++)
@@ -279,7 +280,7 @@ void cleanup_scope(struct scope * scope)
 	{
 		if(scope->type_definition[i])
 		{
-			if(scope->type_definition[i]->name)
+			if(i >= BASETYPES && scope->type_definition[i]->name)			//don't free basetype names...
 				free_0(scope->type_definition[i]->name);
 		}
 		free_0(scope->type_definition[i]);
