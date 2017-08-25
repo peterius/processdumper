@@ -2222,6 +2222,13 @@ int get_next_section(char * data, char ** v, char ** d, unsigned int * z)
 		*d = (char *)data + section[i].PointerToRawData;
 		*v = (char *)pe64header->OptionalHeader.ImageBase + section[i].VirtualAddress;
 		*z = section[i].SizeOfRawData;
+		/* 64 bit library likes to use data outside of the section.  I've seen this in other applications too,
+		 * it's really ugly.  Why have a PE section format with a size if you're just going to piss all over it. */
+		if(i < pe64header->FileHeader.NumberOfSections - 1)
+		{
+			//man I hope these are in order... FIXME
+			*z = section[i + 1].VirtualAddress - section[i].VirtualAddress;
+		}
 		i++;
 	}
 	else    //pe here, pe64 above
