@@ -37,6 +37,7 @@ Hook PROC
 	push rbp
 	push rsi
 	push rdi
+	push rbx
 	mov rcx,rsp
 	mov rdx,66555467h			;can't use a variable
 	sub rsp,20h					;register shadow
@@ -61,6 +62,7 @@ call_orig_func_as_if PROC
 	je @@rettohandler
 	mov r10,rdx
 	mov rsp,rcx
+	pop rbx
 	pop rdi
 	pop rsi
 	pop rbp
@@ -76,6 +78,7 @@ call_orig_func_as_if PROC
 	mov rsp,rcx
 	mov saversi,rsi			; because our caller uses this to cache something...
 	mov saverdi,rdi
+	pop rbx
 	pop rdi
 	pop rsi
 	pop rbp
@@ -88,6 +91,7 @@ call_orig_func_as_if PROC
 	push rbp
 	push rsi
 	push rdi
+	push rbx
 	push rax		; the return value
 	mov rax,rsp		; return stack with return value
 	sub rsp,30h		; for good luck!
@@ -100,6 +104,7 @@ call_orig_func_as_if ENDP
 cleanup_hooking PROC
 	mov rsp,rcx
 	pop rax
+	pop rbx
 	pop rdi
 	pop rsi
 	pop rbp

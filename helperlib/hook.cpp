@@ -52,7 +52,7 @@ int generate_hook(struct hooked_func * proto_hfstruct);
 void cleanup_hook(struct hooked_func * hfstruct);
 
 #ifdef _WIN64
-#define OUR_SP_ADDITIONS			(3 * 8)
+#define OUR_SP_ADDITIONS			(4 * 8)
 #else
 #define OUR_SP_ADDITIONS			(3 * 4)
 #endif //_WIN64
@@ -72,7 +72,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 #else
 	logPrintf("%08x called %s\n", curhook_origret, curhook_hfstruct->origname);
 #endif //_WIN64
-	//__debugbreak();
+
 	g_next_dispatch_length = 0;
 	arg_spec = curhook_hfstruct->arg;
 	while(arg_spec)
@@ -86,7 +86,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 #endif //_WIN64
 		arg_spec = arg_spec->next_spec;
 	}
-	
+
 	/* We want the stack as the function has consumed it, but we'll push the return on there too */
 #ifdef _WIN64
 	logPrintf("orig func %08x%08x\n", PRINTARG64(curhook_hfstruct->origfunc));
@@ -96,6 +96,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	logPrintf("returns:\n");
 	/* How do we differentiate return values in the log FIXME */
 	g_next_dispatch_length = 0;
+
 	arg_spec = curhook_hfstruct->arg;
 	while(arg_spec)
 	{
@@ -152,7 +153,7 @@ void dispatch_arg(void * p, argtypep arg)
 #ifdef _WIN64
 	unsigned long long temp;
 #endif //_WIN64
-	//__debugbreak();
+
 	/* At some point, I probably want to use the ->type type space
 	 * to do a lookup where we can store some variable names from the XML FIXME */
 	try
@@ -708,6 +709,8 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 				//__debugbreak();
 				if(unhook)
 				{
+					/* FIXME FIXME FIXME  if a library is loaded later, it might not be hooked, but possibly we picked it up
+					 * as a dependency library, it just wasn't currently in memory, so we couldn't hook it's further imports... */
 					if(!hfstruct->origfunc)
 						logPrintf("ERROR: no original function for unhooking\n");
 					else if(*(char **)addresstable == (char *)hfstruct->origfunc)
