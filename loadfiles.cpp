@@ -198,6 +198,7 @@ int load_a_file(char * name, char ** buffer, unsigned int * size)
 		CloseHandle(hFile);
 		return -1;
 	}
+	CloseHandle(hFile);
 
 	return 0;
 }
