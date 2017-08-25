@@ -73,6 +73,7 @@ void logData(unsigned char * data, unsigned int size)
 
 	_sprintf(line, "Data[%08x]:\n", size);
 	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+	i = 0;
 	if(size > 0x10)
 	{
 		for(i = 0; i <= size - 0x10; i += 0x10)
@@ -129,6 +130,7 @@ void logwData(unsigned char * data, unsigned int size)
 
 	_sprintf(line, "WData[%08x]:\n", size);
 	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+	i = 0;
 	if(size > 0x10)
 	{
 		for(i = 0; i < size - 0x10; i += 0x10)
