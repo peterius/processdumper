@@ -1200,6 +1200,7 @@ int ListProcessThreads(uint32_t pid)
 	return 0;
 }
 
+#define ERROR_PARTIAL_COPY					299
 //closes previously opened handle for wow64 check, dll choice, a little ugly...
 int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 {
@@ -1397,7 +1398,10 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	CloseHandle(thread);
 
 	if(texitcode != 0)
+	{
 		printf("Injection procedure likely failed: %d\n", texitcode);
+		unhookaddress = 0;
+	}
 	else
 		printf("Injection procedure complete\n");
 
@@ -1416,18 +1420,22 @@ int uninjectProcess(HANDLE pH)
 	unsigned int section_size;
 	char * section_data;
 
-	printf("Creating remote: %08x%08x 32: %08x\n", PRINTARG64(unhookaddress), unhookaddress);
-	thread = CreateRemoteThread(pH, NULL, 0, (LPTHREAD_START_ROUTINE)unhookaddress, NULL, 0, &thread_id);
-	if(!thread)
+	if(!unhookaddress)
+		printf("injection probably failed and cleaned up.\n");
+	else
 	{
-		fprintf(stderr, "uninject process CreateRemoteThread failed (%d)\n", GetLastError());
-		CloseHandle(pH);
-		return -1;
-	}
+		printf("Creating remote: %08x%08x 32: %08x\n", PRINTARG64(unhookaddress), unhookaddress);
+		thread = CreateRemoteThread(pH, NULL, 0, (LPTHREAD_START_ROUTINE)unhookaddress, NULL, 0, &thread_id);
+		if(!thread)
+		{
+			fprintf(stderr, "uninject process CreateRemoteThread failed (%d)\n", GetLastError());
+			CloseHandle(pH);
+			return -1;
+		}
 	
-	WaitForSingleObject(thread, INFINITE);
-	CloseHandle(thread);
-
+		WaitForSingleObject(thread, INFINITE);
+		CloseHandle(thread);
+	}
 	printf("Uninjection procedure complete, unmapping memory...\n");
 
 	IsWow64Process(pH, &wow64);
