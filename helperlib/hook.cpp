@@ -21,6 +21,7 @@
 #include "hookstructures.h"
 #include "xmlhookloader.h"
 #include "argspecutil.h"
+#include "errors.h"
 
  //#define LOGLIBRARYIMPORTS
  //#define IMPORTTABLE_DEBUG
@@ -504,7 +505,7 @@ int hook_imports(bool unhook)
 	if(th32 == INVALID_HANDLE_VALUE)
 	{
 		logPrintf("ERROR: Toolhelp failed %d\n", GetLastError_0());
-		return -1;
+		return CREATETOOLHELP_FAILED;
 	}
 #ifdef _WIN64
 	me32.dwSize = sizeof(MODULEENTRY32W);
@@ -515,7 +516,7 @@ int hook_imports(bool unhook)
 	{
 		logPrintf("ERROR: Module32First failed: %d\n", GetLastError_0());
 		CloseHandle_0(th32);
-		return -1;
+		return MODULEFIRST_FAILED;
 	}
 
 	do
@@ -534,6 +535,7 @@ int hook_imports(bool unhook)
 		logPrintf("\n\tBase size:\t%d\n", me32.modBaseSize);
 #endif //LOGLIBRARYIMPORTS
 
+		// FIXME ignore errors here ?!?
 		hook_import_table((char *)me32.modBaseAddr, me32.modBaseSize, unhook);
 
 	} while(Module32NextW_0(th32, (MODULEENTRY32 *)&me32));
@@ -791,13 +793,13 @@ int allocate_hook_space(void)
 	if(!hookspace)
 	{
 		logPrintf("ERROR: VirtualAlloc failed %d\n", GetLastError_0());
-		return -1;
+		return VIRTUALALLOC_FAILED;
 	}
 	hookspace = (char *)VirtualAlloc_0(hookspace, hookspace_size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if(!hookspace)
 	{
 		logPrintf("ERROR: VirtualAlloc commit failed %d\n", GetLastError_0());
-		return -1;
+		return VIRTUALALLOC_FAILED;
 	}
 
 	hookfuncsize = (char *)&EndHook - (char *)&Hook;
@@ -805,7 +807,7 @@ int allocate_hook_space(void)
 	hooked_funcs = 0;
 
 	if(loadxmlhookfile() < 0)
-		return -1;
+		return XMLLOAD_FAILED;
 	return 0;
 }
 
