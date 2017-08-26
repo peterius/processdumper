@@ -26,6 +26,7 @@
 #include "query.h"
 #include "ipcsocket.h"
 #include "driver.h"
+#include "helperlib/errors.h"
 
 #define NOINJECTIONCOMM
 #define FUNCTIONSTOHOOKFILE			L"functionstohook.xml"
@@ -1386,18 +1387,19 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 
 	printf("Creating remote: %08x%08x 32: %08x\n", PRINTARG64(entryaddress), entryaddress);
 	thread = CreateRemoteThread(pH, NULL, 0, (LPTHREAD_START_ROUTINE)entryaddress, (LPVOID)port, 0, &thread_id);
-	if(!thread)
+	if(!thread || thread == INVALID_HANDLE_VALUE)
 	{
 		fprintf(stderr, "inject process CreateRemoteThread failed (%d)\n", GetLastError());
 		CloseHandle(pH);
 		return -1;
 	}
+	printf("Thread %08x\n", thread);
 
 	WaitForSingleObject(thread, INFINITE);
 	GetExitCodeThread(thread, &texitcode);
 	CloseHandle(thread);
 
-	if(texitcode != 0)
+	if(texitcode != HELPERLIB_SUCCESS)
 	{
 		printf("Injection procedure likely failed: %d\n", texitcode);
 		unhookaddress = 0;

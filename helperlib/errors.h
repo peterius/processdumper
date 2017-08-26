@@ -20,3 +20,5 @@
 #define XMLLOAD_FAILED								-5
 #define CREATETOOLHELP_FAILED						-6
 #define MODULEFIRST_FAILED							-7
+
+#define HELPERLIB_SUCCESS							67

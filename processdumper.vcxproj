@@ -150,6 +150,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="driver.h" />
+    <ClInclude Include="helperlib\errors.h" />
     <ClInclude Include="ipcsocket.h" />
     <ClInclude Include="kernelreplacements.h" />
     <ClInclude Include="libraryloader.h" />

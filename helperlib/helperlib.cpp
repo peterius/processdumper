@@ -76,7 +76,6 @@ Module32FirstWPtr Module32FirstW_0;
 Module32NextWPtr Module32NextW_0;
 ExitThreadPtr ExitThread_0;
 
-
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -146,7 +145,7 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 	if(ret < 0)
 		ExitThread_0(ret);
 	
-	ExitThread_0(0);
+	ExitThread_0(HELPERLIB_SUCCESS);
 	return 0;
 }
 
@@ -289,6 +288,8 @@ int fix_imports(void)
 	SetFilePointer_0 = (SetFilePointerPtr)OurGetProcAddress(k32lib, "SetFilePointer");
 	WideCharToMultiByte_0 = (WideCharToMultiBytePtr)OurGetProcAddress(k32lib, "WideCharToMultiByte");
 	ExitThread_0 = (ExitThreadPtr)OurGetProcAddress(k32lib, "ExitThread");
+	GetTimeFormatEx_0 = (GetTimeFormatExPtr)OurGetProcAddress(k32lib, "GetTimeFormatEx");
+
 
 	stdlib = OurLoadLibrary(L"msvcrt.dll");
 	if(!stdlib)
