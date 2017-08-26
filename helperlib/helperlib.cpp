@@ -19,6 +19,7 @@
 #include "logging.h"
 #include "hook.h"
 #include "justforvs.h"
+#include "errors.h"
 
 int status = 0;
 SOCKET IPCSocket = NULL;
@@ -101,7 +102,7 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 
 	ret = fix_imports();
 	if(ret < 0)
-		ExitThread_0(ret);
+		ExitThread_0(HELPER_FIXIMPORT_FAILED);
 
 	if(port)
 	{
@@ -119,7 +120,7 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 	try
 	{
 		if(setup_logging_file(logfileName) < 0)
-			ExitThread_0(-1);				//no point to going further... 
+			ExitThread_0(LOGGING_FILE_FAILED);				//no point to going further... 
 	}
 	catch(...)
 	{
@@ -137,11 +138,13 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 
 	InitializeCriticalSection_0(&critsection);
 
-	if(allocate_hook_space() < 0)
-		ExitThread_0(-1);
+	ret = allocate_hook_space();
+	if(ret < 0)
+		ExitThread_0(ret);
 	logPrintf("Hook space allocated\n");
-	if(hook_imports() < 0)
-		ExitThread_0(-1);
+	ret = hook_imports();
+	if(ret < 0)
+		ExitThread_0(ret);
 	
 	ExitThread_0(0);
 	return 0;

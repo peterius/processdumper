@@ -51,6 +51,9 @@
     <ClInclude Include="argspecutil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="errors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">

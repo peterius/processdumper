@@ -151,6 +151,7 @@
   <ItemGroup>
     <ClInclude Include="..\winnt.h" />
     <ClInclude Include="argspecutil.h" />
+    <ClInclude Include="errors.h" />
     <ClInclude Include="functionprototypes.h" />
     <ClInclude Include="helperlib.h" />
     <ClInclude Include="hook.h" />
