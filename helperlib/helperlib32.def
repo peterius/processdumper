@@ -6,3 +6,4 @@ EXPORTS
     logfileName
 	functionstohookfile
 	UnloadHelperLib
+	hijackcaller

@@ -53,16 +53,19 @@ typedef struct _OBJECT_ATTRIBUTES {
 bool produceoutput = true;			//a little awkward, basically for testing
 bool driver = true;
 bool attemptinject = true;
+bool hijackthread = false;
 HMODULE kernel32DLL = NULL;
 HMODULE k32DLL = NULL;
 HMODULE ntDLL = NULL;
 HMODULE fakentDLL = NULL;
 
 uint32_t g_pid;
+BOOL g_wow64;
 char * functionstohookfilename;
 char * helperlogfilename;
 char * g_injectedbaseaddress;
 char * unhookaddress;
+char * hijackcaller;
 
 HANDLE sync_event = NULL;
 
@@ -129,7 +132,8 @@ void CheckProcessPrivileges(uint16_t pid);
 BOOL GetLogonSID(HANDLE hToken, PSID *ppsid);
 WCHAR * GetLastErrorString(void);
 int ListProcessThreads(uint32_t pid);
-int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size);
+int injectProcess(HANDLE pH, char * code, unsigned int size);
+int hijack_some_thread(HANDLE pH, char * routine, LPVOID data);
 int uninjectProcess(HANDLE pH);
 uint32_t Get32ProcAddress(char * lib, char * _funcname);
 extern "C"
@@ -238,7 +242,7 @@ void sigintcatch(int signal)
 
 int main(int argc, char ** argv)
 {
-	int i;
+	int i, j;
 	REALADDRESS addr;
 	char * outputfilename = NULL;
 	char * outputdirname = NULL;
@@ -254,6 +258,7 @@ int main(int argc, char ** argv)
 	helperlogfilename = NULL;
 	g_pid = (uint32_t)-1;
 	g_injectedbaseaddress = NULL;
+	hijackthread = false;
 
 	for(i = 0; i < argc; i++)
 	{
@@ -286,17 +291,31 @@ int main(int argc, char ** argv)
 			i++;
 			sscanf(argv[i], "%u", &g_pid);
 		}
-		else if(strcmp("-d", argv[i]) == 0)
+		else if(strlen(argv[i]) > 1 && argv[i][0] == '-' && argv[i][1] != '-')
 		{
-			produceoutput = false;
-		}
-		else if(strcmp("-j", argv[i]) == 0)
-		{
-			attemptinject = false;
-		}
-		else if(strcmp("-n", argv[i]) == 0)
-		{
-			driver = false;
+			j = 1;
+			while(j < strlen(argv[i]) && argv[i][j] != ' ')
+			{
+				switch(argv[i][j])
+				{
+					case 'd':
+						produceoutput = false;
+						break;
+					case 'j':
+						hijackthread = true;
+						break;
+					case 'b':
+						attemptinject = false;
+						break;
+					case 'n':
+						driver = false;
+						break;
+					default:
+						printf("Unknown argument option %c\n", argv[i][j]);
+						break;
+				}
+				j++;
+			}
 		}
 		else if(strcmp("--functions", argv[i]) == 0)
 		{
@@ -306,12 +325,13 @@ int main(int argc, char ** argv)
 		}
 		else if(strcmp("--help", argv[i]) == 0 || strcmp("-h", argv[i]) == 0)
 		{
-			printf("./processdumper -dn -o [dirname] -p [pid] -r [previousoutdir] -q [previousoutdir] -l [logfile]\n");
+			printf("./processdumper -bdnj -o [dirname] -p [pid] -r [previousoutdir] -q [previousoutdir] -l [logfile]\n");
 			printf("\t-r [outdir]: reconstruct from previous output directory\n");
 			printf("\t-q [outdir]: query previously reconstituted exe/dll\n");
 			printf("\t-d: don't produce output files or reconstitute\n");
 			printf("\t-n: don't install driver\n");
-			printf("\t-j: don't attempt to inject process\n");
+			printf("\t-b: don't attempt to inject process\n");
+			printf("\t-j: don't createremotethread, hijack one by default\n");
 			printf("\t-l [logfilename]: injected library will log to this file\n");
 			printf("\t--functions [xmlfile]: specify functions to hook\n");
 			return 0;
@@ -688,7 +708,6 @@ int main(int argc, char ** argv)
 		char * dll;
 		unsigned int dllsize;
 		HANDLE pH;
-		BOOL wow64;
 		
 		//pid = GetProcessId(GetCurrentProcess());
 
@@ -699,19 +718,20 @@ int main(int argc, char ** argv)
 			return -1;
 		}
 
-		IsWow64Process(pH, &wow64);
+		IsWow64Process(pH, &g_wow64);
 
 		attemptinject = 0;
-		if(!wow64 && load_a_file("helperlib.dll", &dll, &dllsize) < 0)
+		if(!g_wow64 && load_a_file("helperlib.dll", &dll, &dllsize) < 0)
 			fprintf(stderr, "Failed to load %s\n", "helperlib.dll");
-		else if(wow64 && load_a_file("helperlib32.dll", &dll, &dllsize) < 0)
+		else if(g_wow64 && load_a_file("helperlib32.dll", &dll, &dllsize) < 0)
 			fprintf(stderr, "Failed to load %s\n", "helperlib32.dll");
-		else if(injectProcess(pH, wow64, dll, dllsize) < 0)
+		else if(injectProcess(pH, dll, dllsize) < 0)
 			fprintf(stderr, "inject process failed\n");
 		else
 			attemptinject = 1;	//injected
 		
 		pH = NULL;
+
 		if(attemptinject)
 		{
 		
@@ -809,6 +829,7 @@ int enummodulepulldown(HANDLE processH, char * outputdirname)
 	BOOL wow64;
 	int files_of_data_written = 0;
 
+	// FIXME FIXME don't we have a global for this now?  same process right?
 	if(IsWow64Process(processH, &wow64) == 0)
 	{
 		fprintf(stderr, "IsWow64Process failed: %d\n", GetLastError());
@@ -1203,7 +1224,7 @@ int ListProcessThreads(uint32_t pid)
 
 #define ERROR_PARTIAL_COPY					299
 //closes previously opened handle for wow64 check, dll choice, a little ugly...
-int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
+int injectProcess(HANDLE pH, char * code, unsigned int size)
 {
 	char * baseaddress;
 	size_t bytes_written;
@@ -1240,7 +1261,7 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	}
 	
 	rebase(baseaddress, code, size);
-	if(wow64)
+	if(g_wow64)
 	{
 		uint32_t call32;
 		printf("WoW64!\n");
@@ -1302,6 +1323,13 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	if(!unhookaddress)
 	{
 		fprintf(stderr, "Can't find UnloadHelperLib address\n");
+		CloseHandle(pH);
+		return -1;
+	}
+	hijackcaller = get_symbol_from_filedata(code, size, "hijackcaller", 1);		//already rebased...
+	if(!hijackcaller)
+	{
+		fprintf(stderr, "Can't find hijackcaller address\n");
 		CloseHandle(pH);
 		return -1;
 	}
@@ -1385,6 +1413,8 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 	port = 0;
 #endif //!NOINJECTIONCOMM
 
+	if(hijackthread)
+		goto injectthread_skip_to_hijack;
 	printf("Creating remote: %08x%08x 32: %08x\n", PRINTARG64(entryaddress), entryaddress);
 	thread = CreateRemoteThread(pH, NULL, 0, (LPTHREAD_START_ROUTINE)entryaddress, (LPVOID)port, 0, &thread_id);
 	if(!thread || thread == INVALID_HANDLE_VALUE)
@@ -1401,14 +1431,214 @@ int injectProcess(HANDLE pH, BOOL wow64, char * code, unsigned int size)
 
 	if(texitcode != HELPERLIB_SUCCESS)
 	{
-		printf("Injection procedure likely failed: %d\n", texitcode);
-		unhookaddress = 0;
+		if(texitcode == 0)		//trickery!!!
+		{
+injectthread_skip_to_hijack:
+			texitcode = hijack_some_thread(pH, entryaddress, (LPVOID)port);
+			if(texitcode < 0)
+			{
+				printf("Injection procedure likely failed: %d\n", texitcode);
+				unhookaddress = 0;
+			}
+			//FIXME FIXME FIXME need some kind of sync object here ... 
+		}
+		else
+		{
+			printf("Injection procedure likely failed: %d\n", texitcode);
+			unhookaddress = 0;
+		}
 	}
 	else
 		printf("Injection procedure complete\n");
 
 	CloseHandle(pH);
 	return 0;
+}
+
+int hijack_some_thread(HANDLE pH, char * routine, LPVOID data)
+{
+	HANDLE th32H = INVALID_HANDLE_VALUE;
+	THREADENTRY32 te32;
+	WCHAR * errstring;
+	DWORD err;
+	HANDLE athread, thethread;
+	int ret = 0;
+	size_t bytes_written;
+	DWORD hijackedthreadid;
+
+	thethread = NULL;
+	hijackedthreadid = 0;
+
+	data = (LPVOID)((DWORD)data | 0x80000000);			//to notify helperlib of hijack
+
+	//ERROR_PARTIAL_COPY 299
+	th32H = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if(th32H == INVALID_HANDLE_VALUE)
+	{
+		errstring = GetLastErrorString();
+		fwprintf(stderr, L"CreateToolhelp32Snapshot failed(%s)\n", GetLastErrorString());
+		free(errstring);
+		return -1;
+	}
+
+	te32.dwSize = sizeof(THREADENTRY32);
+
+	if(!Thread32First(th32H, &te32))
+	{
+		err = GetLastError();
+		errstring = GetLastErrorString();
+		//18 ERROR_NO_MORE_FILES
+		if(err == ERROR_NO_MORE_FILES)
+			fprintf(stderr, "CreateToolhelp32Snapshot found no files?!\n");
+		else
+			fwprintf(stderr, L"Thread32First failed(%d: %s)\n", GetLastError(), GetLastErrorString());
+		free(errstring);
+		CloseHandle(th32H);     // Must clean up the snapshot object!
+		return -1;
+	}
+
+	do
+	{
+		if(te32.th32OwnerProcessID == g_pid)
+		{
+			athread = OpenThread(THREAD_ALL_ACCESS, FALSE, te32.th32ThreadID);
+			if(!athread || athread == INVALID_HANDLE_VALUE)
+				fprintf(stderr, "OpenThread failed %d\n", GetLastError());
+			if(g_wow64)
+				Wow64SuspendThread(athread);
+			else
+				SuspendThread(athread);
+			if(!thethread)
+			{
+				thethread = athread;
+				hijackedthreadid = te32.th32ThreadID;
+			}
+			else
+				CloseHandle(athread);
+		}
+	} while(Thread32Next(th32H, &te32));
+
+	if(!g_wow64)
+	{
+		CONTEXT threadcontext;
+		threadcontext.ContextFlags = CONTEXT_CONTROL;
+		if(!GetThreadContext(thethread, &threadcontext))
+		{
+			fprintf(stderr, "GetThreadContext failed %d\n", GetLastError());
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		printf("wtf %p %p\n", threadcontext.Rsp, threadcontext.Rip);
+		threadcontext.Rsp -= sizeof(uint64_t);
+		if(!WriteProcessMemory(pH, (LPVOID)threadcontext.Rsp, &(threadcontext.Rip), sizeof(uint64_t), &bytes_written))
+		{
+			fprintf(stderr, "inject process WriteProcessMemory line: %d, failed (%d)\n", __LINE__, GetLastError());
+			CloseHandle(pH);
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		threadcontext.Rsp -= sizeof(uint64_t);
+		if(!WriteProcessMemory(pH, (LPVOID)threadcontext.Rsp, &data, sizeof(uint64_t), &bytes_written))
+		{
+			fprintf(stderr, "inject process WriteProcessMemory line: %d, failed (%d)\n", __LINE__, GetLastError());
+			CloseHandle(pH);
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		threadcontext.Rsp -= sizeof(uint64_t);
+		if(!WriteProcessMemory(pH, (LPVOID)threadcontext.Rsp, &routine, sizeof(uint64_t), &bytes_written))
+		{
+			fprintf(stderr, "inject process WriteProcessMemory line: %d, failed (%d)\n", __LINE__, GetLastError());
+			CloseHandle(pH);
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		threadcontext.Rip = (DWORD64)hijackcaller;
+		printf("hijackcaller %p\n", hijackcaller);
+		SetThreadContext(thethread, &threadcontext);
+	}
+	else
+	{
+		WOW64_CONTEXT wow64_threadcontext;
+		wow64_threadcontext.ContextFlags = WOW64_CONTEXT_CONTROL;
+		if(!Wow64GetThreadContext(thethread, &wow64_threadcontext))
+		{
+			fprintf(stderr, "Wow64GetThreadContext failed %d\n", GetLastError());
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		wow64_threadcontext.Esp -= sizeof(uint32_t);
+		printf("wtf %08x %08x\n", wow64_threadcontext.Esp, wow64_threadcontext.Eip);
+		if(!WriteProcessMemory(pH, (LPVOID)wow64_threadcontext.Esp, &(wow64_threadcontext.Eip), sizeof(uint32_t), &bytes_written))
+		{
+			fprintf(stderr, "inject process WriteProcessMemory line: %d failed (%d)\n", __LINE__, GetLastError());
+			CloseHandle(pH);
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		wow64_threadcontext.Esp -= sizeof(uint32_t);
+		if(!WriteProcessMemory(pH, (LPVOID)wow64_threadcontext.Esp, &data, sizeof(uint32_t), &bytes_written))
+		{
+			fprintf(stderr, "inject process WriteProcessMemory line: %d failed (%d)\n", __LINE__, GetLastError());
+			CloseHandle(pH);
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		wow64_threadcontext.Esp -= sizeof(uint32_t);
+		if(!WriteProcessMemory(pH, (LPVOID)wow64_threadcontext.Esp, &routine, sizeof(uint32_t), &bytes_written))
+		{
+			fprintf(stderr, "inject process WriteProcessMemory line: %d failed (%d)\n", __LINE__, GetLastError());
+			CloseHandle(pH);
+			CloseHandle(thethread);
+			ret = -1;
+			goto hijack_resume_everything;
+		}
+		wow64_threadcontext.Eip = (DWORD)hijackcaller;
+		printf("hijackcaller %p\n", hijackcaller);
+		Wow64SetThreadContext(thethread, &wow64_threadcontext);
+	}
+	ResumeThread(thethread);
+	CloseHandle(thethread);
+
+hijack_resume_everything:
+	if(!Thread32First(th32H, &te32))
+	{
+		err = GetLastError();
+		errstring = GetLastErrorString();
+		//18 ERROR_NO_MORE_FILES
+		if(err == ERROR_NO_MORE_FILES)
+			fprintf(stderr, "CreateToolhelp32Snapshot found no files?!\n");
+		else
+			fwprintf(stderr, L"Thread32First failed(%d: %s)\n", GetLastError(), GetLastErrorString());
+		free(errstring);
+		CloseHandle(th32H);     // Must clean up the snapshot object!
+		return -1;
+	}
+
+	do
+	{
+		if(te32.th32OwnerProcessID == g_pid && hijackedthreadid != te32.th32ThreadID)
+		{
+			athread = OpenThread(THREAD_ALL_ACCESS, FALSE, te32.th32ThreadID);
+			if(!athread || athread == INVALID_HANDLE_VALUE)
+				fprintf(stderr, "OpenThread failed %d\n", GetLastError());
+			/* But what if the thread was suspended to begin with ?!? FIXME */
+			ResumeThread(athread);
+			CloseHandle(athread);
+		}
+	} while(Thread32Next(th32H, &te32));
+
+	CloseHandle(th32H);
+
+	hijackthread = true;
+	return ret;
 }
 
 int uninjectProcess(HANDLE pH)
@@ -1426,17 +1656,25 @@ int uninjectProcess(HANDLE pH)
 		printf("injection probably failed and cleaned up.\n");
 	else
 	{
-		printf("Creating remote: %08x%08x 32: %08x\n", PRINTARG64(unhookaddress), unhookaddress);
-		thread = CreateRemoteThread(pH, NULL, 0, (LPTHREAD_START_ROUTINE)unhookaddress, NULL, 0, &thread_id);
-		if(!thread)
+		if(hijackthread)
 		{
-			fprintf(stderr, "uninject process CreateRemoteThread failed (%d)\n", GetLastError());
-			CloseHandle(pH);
-			return -1;
+			if(hijack_some_thread(pH, unhookaddress, NULL) < 0)
+				fprintf(stderr, "uninject process hijack failed\n");
 		}
+		else
+		{
+			printf("Creating remote: %08x%08x 32: %08x\n", PRINTARG64(unhookaddress), unhookaddress);
+			thread = CreateRemoteThread(pH, NULL, 0, (LPTHREAD_START_ROUTINE)unhookaddress, NULL, 0, &thread_id);
+			if(!thread)
+			{
+				fprintf(stderr, "uninject process CreateRemoteThread failed (%d)\n", GetLastError());
+				CloseHandle(pH);
+				return -1;
+			}
 	
-		WaitForSingleObject(thread, INFINITE);
-		CloseHandle(thread);
+			WaitForSingleObject(thread, INFINITE);
+			CloseHandle(thread);
+		}
 	}
 	printf("Uninjection procedure complete, unmapping memory...\n");
 

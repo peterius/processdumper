@@ -19,6 +19,7 @@ PUBLIC EndHook
 PUBLIC LockHook
 PUBLIC call_orig_func_as_if
 PUBLIC cleanup_hooking
+PUBLIC hijackcaller
 
 _DATA SEGMENT
 	saveretvalue    dq 0
@@ -110,6 +111,45 @@ cleanup_hooking PROC
 	pop rbp
 	jmp rdx
 cleanup_hooking ENDP
+
+hijackcaller PROC
+	push rax
+	push rbx
+	push rcx
+	push rdx
+	push r8
+	push r9
+	push r10
+	push r11
+	push r12
+	push r13
+	push r14
+	push r15
+	push rbp
+	push rdi
+	push rsi
+	mov rdx,[rsp+78h]
+	mov rcx,[rsp+80h]
+	sub rsp,20h
+	call rdx
+	add rsp,20h
+	pop rsi
+	pop rdi
+	pop rbp
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop r9
+	pop r8
+	pop rdx
+	pop rcx
+	pop rbx
+	pop rax
+	ret
+hijackcaller ENDP
 
 _TEXT ENDS
 

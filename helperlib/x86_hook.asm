@@ -19,6 +19,7 @@ PUBLIC EndHook
 PUBLIC LockHook
 PUBLIC call_orig_func_as_if
 PUBLIC cleanup_hooking
+PUBLIC hijackcaller
 
 EXTERN hookfuncfunc: PROC
 
@@ -93,6 +94,29 @@ cleanup_hooking PROC
 	pop ebp
 	jmp ecx
 cleanup_hooking ENDP
+
+hijackcaller PROC
+	push eax
+	push ebx
+	push ecx
+	push edx
+	push esi
+	push edi
+	push ebp
+	mov eax,[esp+1ch]
+	mov ebx,[esp+20h]
+	push ebx
+	call eax
+	pop ebp
+	pop edi
+	pop esi
+	pop edx
+	pop ecx
+	pop ebx
+	pop eax
+	add esp,8h
+	ret
+hijackcaller ENDP
 
 _TEXT ENDS
 
