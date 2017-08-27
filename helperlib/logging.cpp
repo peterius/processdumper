@@ -12,6 +12,7 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+//#include <Windows.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include "logging.h"
@@ -32,9 +33,12 @@ vsnprintfPtr vsnprintf_0;
 vsnwprintfPtr vsnwprintf_0;
 strlenPtr strlen_0;
 wcslenPtr wcslen_0;
+GetTimeFormatExPtr GetTimeFormatEx_0;
+GetDateFormatExPtr GetDateFormatEx_0;
 
 int setup_logging_file(char * filename)
 {
+	LPWSTR timestring;
 #ifdef UNICODE_BOM
 	unsigned char bom[] = { 0xFF, 0xFE };
 	
@@ -54,13 +58,21 @@ int setup_logging_file(char * filename)
 #endif //UNICODE_BOM
 	if(!loggingfile)
 		return -1;
-
+	timestring = (LPWSTR)malloc_0(50);
+	GetDateFormatEx_0(LOCALE_NAME_SYSTEM_DEFAULT, 0, NULL, L"yyyyMMdd", timestring, 50, NULL);
+	WideCharToMultiByte_0(CP_UTF8, 0, timestring, -1, line, 500, NULL, NULL);
+	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+	_fwrite(" ", sizeof(char), 1, loggingfile);
+	GetTimeFormatEx_0(LOCALE_NAME_SYSTEM_DEFAULT, 0, NULL, NULL, timestring, 50);
+	WideCharToMultiByte_0(CP_UTF8, 0, timestring, -1, line, 500, NULL, NULL);
+	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+	_fwrite("\n", sizeof(char), 1, loggingfile);
+	free_0(timestring);
 	return 0;
 }
 
 void close_logging_file(void)
 {
-	//but we never exit, ha ha, and the network connection doesn't work in 32bit!
 	_fclose(loggingfile);
 }
 

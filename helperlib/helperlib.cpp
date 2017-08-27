@@ -95,13 +95,17 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 DWORD WINAPI DLLIPCThread(LPVOID param)
 {
-	uint16_t port = (uint16_t )param;
-	
+	uint16_t port = (uint16_t )((DWORD)param & 0xffff);
+	bool hijack = ((DWORD)param & 0x80000000);
 	int ret;
 
 	ret = fix_imports();
 	if(ret < 0)
+	{
+		if(hijack)
+			return 0;
 		ExitThread_0(HELPER_FIXIMPORT_FAILED);
+	}
 
 	if(port)
 	{
@@ -119,15 +123,23 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 	try
 	{
 		if(setup_logging_file(logfileName) < 0)
+		{
+			if(hijack)
+				return 0;
 			ExitThread_0(LOGGING_FILE_FAILED);				//no point to going further... 
+		}
 	}
 	catch(...)
 	{
+		if(hijack)
+			return 0;
 		ExitThread_0(-1);
 	}
 	logPrintf(utf8("软件开始\n"));
 	logPrintf(utf8("PID %d Name: %s\n"), GetProcessId_0(GetCurrentProcess_0()), "UNHANDLED");
 	logPrintf(utf8("Image Path: %s\n"), "UNHANDLED");			//tooltip should have this... 
+	if(hijack)
+		logPrintf("hijacked thread\n");
 #ifdef _WIN64
 	char * temp = (char *)&DLLIPCThread;
 	logwPrintf(L"Our entry %08x%08x\n", PRINTARG64(temp));
@@ -139,12 +151,21 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 
 	ret = allocate_hook_space();
 	if(ret < 0)
+	{
+		if(hijack)
+			return 0;
 		ExitThread_0(ret);
+	}
 	logPrintf("Hook space allocated\n");
 	ret = hook_imports();
 	if(ret < 0)
+	{
+		if(hijack)
+			return 0;
 		ExitThread_0(ret);
-	
+	}
+	if(hijack)
+		return 0;
 	ExitThread_0(HELPERLIB_SUCCESS);
 	return 0;
 }
@@ -289,7 +310,7 @@ int fix_imports(void)
 	WideCharToMultiByte_0 = (WideCharToMultiBytePtr)OurGetProcAddress(k32lib, "WideCharToMultiByte");
 	ExitThread_0 = (ExitThreadPtr)OurGetProcAddress(k32lib, "ExitThread");
 	GetTimeFormatEx_0 = (GetTimeFormatExPtr)OurGetProcAddress(k32lib, "GetTimeFormatEx");
-
+	GetDateFormatEx_0 = (GetDateFormatExPtr)OurGetProcAddress(k32lib, "GetDateFormatEx");
 
 	stdlib = OurLoadLibrary(L"msvcrt.dll");
 	if(!stdlib)

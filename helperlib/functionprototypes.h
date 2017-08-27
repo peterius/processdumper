@@ -59,6 +59,8 @@ typedef BOOL (WINAPI * ReadFilePtr)(HANDLE hFile, LPVOID lpBuffer, DWORD nNumber
 typedef DWORD(WINAPI * SetFilePointerPtr)(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod);
 typedef int (__stdcall * WideCharToMultiBytePtr)(UINT CodePage, DWORD dwFlags, LPCWSTR lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, LPCSTR lpDefaultChar, LPBOOL lpUsedDefaultChar);
 typedef VOID (WINAPI * ExitThreadPtr)(DWORD dwExitCode);
+typedef int (__stdcall * GetTimeFormatExPtr)(LPCWSTR lpLocaleName, DWORD dwFlags, const SYSTEMTIME *lpTime, LPCWSTR lpFormat, LPWSTR lpTimeStr, int cchTime);
+typedef int (__stdcall * GetDateFormatExPtr)(LPCWSTR lpLocaleName, DWORD dwFlags, const SYSTEMTIME *lpDate, LPCWSTR lpFormat, LPWSTR lpDateStr, int cchDate, LPCWSTR lpCalendar);
 
 extern fopenPtr _fopen;
 extern fclosePtr _fclose;
@@ -100,11 +102,12 @@ extern ReadFilePtr ReadFile_0;
 extern SetFilePointerPtr SetFilePointer_0;
 extern WideCharToMultiBytePtr WideCharToMultiByte_0;
 extern ExitThreadPtr ExitThread_0;
+extern GetTimeFormatExPtr GetTimeFormatEx_0;
+extern GetDateFormatExPtr GetDateFormatEx_0;
 
 void * memset_0(void *dest, int c, size_t count);
 void * memcpy_0(void *dest, const void *src, size_t count);
 int memcmp_0(const void * a, const void * b, size_t count);
-
 
 /* For hooks */
 /*typedef HANDLE (* WINAPI CreateFileAPtr)(
