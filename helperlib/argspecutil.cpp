@@ -51,7 +51,8 @@ struct arg_spec * copy_arg_spec_chain(struct arg_spec * s)
 	memcpy_0(r, s, sizeof(struct arg_spec));
 	ri = r;
 	ri->arg_name = NULL;
-	ri->deref_len = NULL;
+	if(ri->deref_len > (argtypep)0x1000)
+		ri->deref_len = NULL;
 	s = s->deref;
 	while(s)
 	{
@@ -60,7 +61,8 @@ struct arg_spec * copy_arg_spec_chain(struct arg_spec * s)
 		// we do not want copies of these strings... we don't even use them
 		//end deref can set the arg_name on the first arg_spec if it wants... 
 		ri->deref->arg_name = NULL;
-		ri->deref->deref_len = NULL;
+		if(ri->deref->deref_len > (argtypep)0x1000)
+			ri->deref->deref_len = NULL;
 		ri = ri->deref;
 		s = s->deref;
 	}

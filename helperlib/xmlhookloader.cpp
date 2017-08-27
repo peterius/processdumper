@@ -102,7 +102,7 @@ void fixup_function_lengths(struct hooked_func * hfstruct);
 int parse(char * data, unsigned int size);
 void xmldebugPrint(char * d, int s);
 void whitespace(char ** d);
-int wstrncmp(char * a, char * b, int n);
+int strnicmp_0(char * a, char * b, int n);
 int wstrcmp(char * a, char * b);
 int countto(char * d, char w);
 char * get_quoted_value(char ** d);
@@ -110,7 +110,7 @@ value_t get_quoted_numeric_value(char ** d, bool * neg);
 s_bool get_quoted_boolean(char ** d);
 
 char * g_xmlfile_buffer;
-#define BASETYPES					19
+#define BASETYPES_WITHSTRINGS					19
 char * base_type_names[] = { "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t", "void *", "char", "unsigned char", "wchar_t" };
 
 char len_type[] = "size_t";			//is this appropriate, I just want to use it to signal buffer lengths... FIXME
@@ -135,7 +135,7 @@ void create_basic_types(void)
 
 	scope_list[0]->name = NULL;
 	scope_list[0]->defines = scope::global_or_unknown;
-	scope_list[0]->type_definitions = BASETYPES;
+	scope_list[0]->type_definitions = BASETYPES_WITHSTRINGS;
 	scope_list[0]->type_definition = (struct type_def **)malloc_0(scope_list[0]->type_definitions * sizeof(struct type_def *));
 
 	for(i = 0; i < 12; i++)
@@ -280,7 +280,7 @@ void cleanup_scope(struct scope * scope)
 	{
 		if(scope->type_definition[i])
 		{
-			if(i >= BASETYPES && scope->type_definition[i]->name)			//don't free basetype names...
+			if(i >= BASETYPES_WITHSTRINGS && scope->type_definition[i]->name)			//don't free basetype names...
 				free_0(scope->type_definition[i]->name);
 		}
 		free_0(scope->type_definition[i]);
@@ -308,7 +308,7 @@ struct type_def * lookup_type(char * name, bool cur_scope=false)
 			if(!scope_stack[scope_check_index]->type_definition[i])
 				continue;
 			logPrintf("\t\t%s\n", scope_stack[scope_check_index]->type_definition[i]->name);
-			if(scope_stack[scope_check_index]->type_definition[i]->name && wstrcmp(name, scope_stack[scope_check_index]->type_definition[i]->name) == 0)
+			if(scope_stack[scope_check_index]->type_definition[i]->name && strcmp_0(name, scope_stack[scope_check_index]->type_definition[i]->name) == 0)
 			{
 				return scope_stack[scope_check_index]->type_definition[i];
 			}
@@ -519,14 +519,16 @@ ffl_onemoretime:
 	i = hfstruct->arg;
 	while(i)
 	{
-		logPrintf("i %p %p\n", i, i->next_spec);
-		if(i->deref_len)
+		if(i->deref_len > (argtypep)0x1000)
 		{
 			j = hfstruct->arg;
 			while(j)
 			{
-				if(j->arg_name && strcmp_0(j->arg_name, (char *)i->deref_len) == 0)
+				if(j->arg_name && strcmp_0(j->arg_name, (char *)i->deref_len) == 0 ||
+					!j->arg_name && strcmp_0((char *)i->deref_len, "return") == 0 && (j->type & ARGSPECRETURN_VALUE))
 				{
+					if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
+						logPrintf("XML parse warning: pre/post call flags don't match on length defined buffer\n");
 					insert_arg_spec(hfstruct->arg, i, j);
 					j->type |= ARGSPECLENRELATED;
 					free_0(i->deref_len);				//this is the name string for the reference
@@ -603,6 +605,8 @@ void xmlcleanup(void)
 	free_0(g_xmlfile_buffer);
 }
 
+/* FIXME FIXME FIXME most of this stuff should be strcasecmp... name, NAME nAmE... */
+/* FIXME FIXME FIXME should also be forgiving of bad attributes, elements, just skip them... */
 /* Should probably check for duplicate attribute assignments so as not to leak everywhere but
  * I guess I don't care.  FIXME */
 int parse(char * data, unsigned int size)
@@ -630,6 +634,7 @@ int parse(char * data, unsigned int size)
 	char * libn;
 	int l;
 	unsigned int ordinal;
+	unsigned long argsize_size;
 	bool neg;
 	bool is_an_element;
 	bool is_return_value;
@@ -657,7 +662,8 @@ int parse(char * data, unsigned int size)
 	arg_spec = NULL;
 	proto = NULL;
 	proto_end = NULL;
-	
+	argsize_size = 0;
+
 	d = data;
 	end = d + size;
 
@@ -670,7 +676,7 @@ int parse(char * data, unsigned int size)
 		{
 			d++;
 			whitespace(&d);
-			if(wstrncmp(d, "!--", 3) == 0)
+			if(strnicmp_0(d, "!--", 3) == 0)
 			{
 				while((*d != '-' || *(d + 1) != '-' || *(d + 2) != '>') && d < end - 2)
 					d++;
@@ -689,7 +695,7 @@ int parse(char * data, unsigned int size)
 					return -1;
 				}
 				d++;
-				if(wstrncmp(d, "lib", 3) == 0)
+				if(strnicmp_0(d, "lib", 3) == 0)
 				{
 					if(CURRENT_SCOPE->defines != scope::library)
 					{
@@ -699,7 +705,7 @@ int parse(char * data, unsigned int size)
 					leave_scope();
 					inlibname = NULL;
 				}
-				else if(wstrncmp(d, "function", 8) == 0)
+				else if(strnicmp_0(d, "function", 8) == 0)
 				{
 					fixup_function_lengths(hfstruct);
 					leave_scope();
@@ -708,7 +714,7 @@ int parse(char * data, unsigned int size)
 					functionname = NULL;
 					arg_spec = NULL;
 				}
-				else if(wstrncmp(d, "type", 4) == 0)
+				else if(strnicmp_0(d, "type", 4) == 0)
 				{
 					if(CURRENT_SCOPE->defines != scope::type)
 					{
@@ -718,7 +724,7 @@ int parse(char * data, unsigned int size)
 					CURRENT_SCOPE->defines = scope::type_closed;
 					leave_scope();
 				}
-				else if(wstrncmp(d, "arg", 3) == 0)
+				else if(strnicmp_0(d, "arg", 3) == 0)
 				{
 					if(CURRENT_SCOPE->defines != scope::type_closed)
 					{
@@ -729,7 +735,7 @@ int parse(char * data, unsigned int size)
 					is_an_element = false;
 					leave_scope();
 				}
-				else if(wstrncmp(d, "return", 6) == 0)
+				else if(strnicmp_0(d, "return", 6) == 0)
 				{
 					if(CURRENT_SCOPE->defines != scope::type_closed)
 					{
@@ -741,7 +747,7 @@ int parse(char * data, unsigned int size)
 					is_an_element = false;
 					leave_scope();
 				}
-				else if(wstrncmp(d, "element", 7) == 0)
+				else if(strnicmp_0(d, "element", 7) == 0)
 				{
 					if(CURRENT_SCOPE->defines != scope::type && CURRENT_SCOPE->defines != scope::type_closed)
 					{
@@ -772,14 +778,14 @@ int parse(char * data, unsigned int size)
 				d += i + 1;
 				depth--;
 			}
-			else if(wstrncmp(d, "?xml", 4) == 0)
+			else if(strnicmp_0(d, "?xml", 4) == 0)
 			{
 				// xml header
 				d++;
 				i = countto(d, '>');
 				d += i + 1;
 			}
-			else if(wstrncmp(d, "lib", 3) == 0)
+			else if(strnicmp_0(d, "lib", 3) == 0)
 			{
 				//<lib attributes ... 
 				if(depth != 0)
@@ -789,7 +795,7 @@ int parse(char * data, unsigned int size)
 				}
 				d += 3;
 				whitespace(&d);
-				if(wstrncmp(d, "name", 4) == 0)
+				if(strnicmp_0(d, "name", 4) == 0)
 				{
 					i = countto(d, '=');
 					d += i + 1;
@@ -801,7 +807,8 @@ int parse(char * data, unsigned int size)
 				else
 				{
 					logPrintf("XML parse error: Bad lib element\n");
-					return -1;
+					i = countto(d, '>');
+					d += i + 1;
 				}
 				depth++;
 				if(!inlibname)
@@ -812,7 +819,7 @@ int parse(char * data, unsigned int size)
 				enter_scope(get_add_scope(inlibname));
 				CURRENT_SCOPE->defines = scope::library;
 			}
-			else if(wstrncmp(d, "function", 8) == 0)
+			else if(strnicmp_0(d, "function", 8) == 0)
 			{
 				//<function attributes ... 
 				if(depth == 0 || (depth == 1 && inlibname))				//functions have to be either global, or within a library scope
@@ -829,27 +836,27 @@ int parse(char * data, unsigned int size)
 						{
 							break;
 						}
-						else if(wstrncmp(d, "name", 4) == 0)
+						else if(strnicmp_0(d, "name", 4) == 0)
 						{
 							i = countto(d, '=');
 							d += i + 1;
 							whitespace(&d);
 							functionname = get_quoted_value(&d);
 						}
-						else if(wstrncmp(d, "lib", 3) == 0)
+						else if(strnicmp_0(d, "lib", 3) == 0)
 						{
 							i = countto(d, '=');
 							d += i + 1;
 							whitespace(&d);
 							libn = get_quoted_value(&d);
-							if(inlibname && wstrncmp(inlibname, libn, (int)strlen_0(libn)) != 0)
+							if(inlibname && strnicmp_0(inlibname, libn, (int)strlen_0(libn)) != 0)
 							{
 								logPrintf("XML parse error: function specified lib name differs from containing element lib name\n");
 								free_0(libn);
 								return -1;
 							}
 						}
-						else if(wstrncmp(d, "ordinal", 7) == 0)
+						else if(strnicmp_0(d, "ordinal", 7) == 0)
 						{
 							i = countto(d, '=');
 							d += i + 1;
@@ -864,7 +871,7 @@ int parse(char * data, unsigned int size)
 								return -1;
 							}
 						}
-						else if(wstrncmp(d, "stacktrace", 10) == 0)
+						else if(strnicmp_0(d, "stacktrace", 10) == 0)
 						{
 							i = countto(d, '=');
 							d += i + 1;
@@ -874,7 +881,8 @@ int parse(char * data, unsigned int size)
 						else
 						{
 							logPrintf("XML parse error: bad function attribute\n");
-							return -1;
+							i = countto(d, '/');
+							d += i;
 						}
 						whitespace(&d);
 					}
@@ -945,7 +953,7 @@ int parse(char * data, unsigned int size)
 					return -1;
 				}
 			}
-			else if(wstrncmp(d, "type", 4) == 0)
+			else if(strnicmp_0(d, "type", 4) == 0)
 			{
 				//<type attributes...
 				d += 4;
@@ -961,28 +969,28 @@ parse_handletype:
 						//nested elements... 
 						break;
 					}
-					if(wstrncmp(d, "name", 4) == 0)
+					if(strnicmp_0(d, "name", 4) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						typenamestr = get_quoted_value(&d);
 					}
-					else if(wstrncmp(d, "type", 4) == 0)
+					else if(strnicmp_0(d, "type", 4) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						typevalue = get_quoted_value(&d);
 					}
-					else if(wstrncmp(d, "basetype", 8) == 0)
+					else if(strnicmp_0(d, "basetype", 8) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						typebasetype = get_quoted_value(&d);
 					}
-					else if(wstrncmp(d, "offset", 8) == 0)
+					else if(strnicmp_0(d, "offset", 8) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
@@ -993,8 +1001,8 @@ parse_handletype:
 					else
 					{
 						logPrintf("XML parse error: bad type attribute\n");
-						xmldebugPrint(d, 10);
-						return -1;
+						i = countto(d, '/');
+						d += i;
 					}
 					whitespace(&d);
 				}
@@ -1009,7 +1017,7 @@ parse_handletype:
 							logPrintf("XML parse error: attempting to define type without type\n");
 						return -1;
 					}
-					if(wstrcmp(typevalue, "pointer") == 0)
+					if(stricmp_0(typevalue, "pointer") == 0)
 					{
 						if(!typebasetype)
 							logPrintf("XML parse error: pointer with no basetype\n");
@@ -1018,13 +1026,13 @@ parse_handletype:
 							t = add_type(typenamestr, typebasetype, 1, is_an_element);
 						}
 					}
-					else if(wstrcmp(typevalue, "array") == 0)
+					else if(stricmp_0(typevalue, "array") == 0)
 					{
 						logPrintf("XML parse warning: skipping array type...\n");
 						//FIXME
 						//goto type_setup_struct_offset;
 					}
-					else if(wstrcmp(typevalue, "struct") == 0)
+					else if(stricmp_0(typevalue, "struct") == 0)
 					{
 						t = add_type(typenamestr, typevalue, 0, is_an_element);
 						//no definition, we'll only log pointer
@@ -1036,7 +1044,7 @@ parse_handletype:
 				else
 				{
 					d++;
-					if(wstrcmp(typevalue, "struct") != 0)
+					if(stricmp_0(typevalue, "struct") != 0)
 					{
 						logPrintf("XML parse error: nested type is not struct\n");
 						return -1;
@@ -1057,21 +1065,21 @@ parse_handletype:
 					typevalue = NULL;
 				}
 			}
-			else if(wstrncmp(d, "value", 5) == 0)
+			else if(strnicmp_0(d, "value", 5) == 0)
 			{
 				//<value attributes...
 				d += 5;
 				whitespace(&d);
 				while(d < end && *d != '/')
 				{
-					if(wstrncmp(d, "name", 4) == 0)
+					if(strnicmp_0(d, "name", 4) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						valuename = get_quoted_value(&d);
 					}
-					else if(wstrncmp(d, "value", 5) == 0)
+					else if(strnicmp_0(d, "value", 5) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
@@ -1098,7 +1106,8 @@ parse_handletype:
 					{
 						logPrintf("XML parse error: bad value attribute\n");
 						xmldebugPrint(d, 10);
-						return -1;
+						i = countto(d, '/');
+						d += i;
 					}
 					whitespace(&d);
 				}
@@ -1124,7 +1133,7 @@ parse_handletype:
 				}
 				valuename = NULL;
 			}
-			else if(wstrncmp(d, "element", 7) == 0)
+			else if(strnicmp_0(d, "element", 7) == 0)
 			{
 				d += 7;
 				is_an_element = true;
@@ -1142,7 +1151,7 @@ parse_handletype:
 					return -1;
 				}
 			}
-			else if(wstrncmp(d, "arg", 3) == 0)
+			else if(strnicmp_0(d, "arg", 3) == 0)
 			{
 				//<arg attributes...
 				if(!functionname || !hfstruct)
@@ -1167,7 +1176,7 @@ parse_handlearg:
 						//nested elements... 
 						break;
 					}
-					if(wstrncmp(d, "name", 4) == 0)
+					if(strnicmp_0(d, "name", 4) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
@@ -1182,35 +1191,44 @@ parse_handlearg:
 							return -1;
 						}
 					}
-					else if(wstrncmp(d, "type", 4) == 0)
+					else if(strnicmp_0(d, "type", 4) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						argtype = get_quoted_value(&d);
 					}
-					else if(wstrncmp(d, "size", 4) == 0)
+					else if(strnicmp_0(d, "size", 4) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						argsize = get_quoted_value(&d);
+						if(!argsize)
+						{
+							argsize_size = get_quoted_numeric_value(&d, NULL);
+							if(argsize_size > 0x1000)
+							{
+								logPrintf("XML parse error: constant size greater than 0x1000\n");
+								argsize_size = 0x1000;
+							}
+						}
 					}
-					else if(wstrncmp(d, "log", 3) == 0)
+					else if(strnicmp_0(d, "log", 3) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						log = get_quoted_boolean(&d);
 					}
-					else if(wstrncmp(d, "precall", 7) == 0)
+					else if(strnicmp_0(d, "precall", 7) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						precall = get_quoted_boolean(&d);
 					}
-					else if(wstrncmp(d, "postcall", 8) == 0)
+					else if(strnicmp_0(d, "postcall", 8) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
@@ -1221,7 +1239,8 @@ parse_handlearg:
 					{
 						logPrintf("XML parse error: bad arg attribute\n");
 						xmldebugPrint(d, 10);
-						return -1;
+						i = countto(d, '/');
+						d += i;
 					}
 					whitespace(&d);
 				}
@@ -1261,7 +1280,7 @@ parse_handlearg:
 						//	__debugbreak();
 						//if(!argsize && t->basetype == ARG_TYPE_PTR)
 						//	__debugbreak();
-						if(precall != fase && !is_return_value)
+						if(((precall != fase && postcall != tru) || precall == tru) && !is_return_value)
 							a |= ARGSPECOFPRECALLINTEREST;
 						if(postcall == tru || (is_return_value && postcall != fase))
 							a |= ARGSPECOFPOSTCALLINTEREST;
@@ -1270,20 +1289,18 @@ parse_handlearg:
 						logPrintf("arg %s %04x\n", argname, a);
 						if(t->basetype > 20)
 							logPrintf("XML parse error: high base type %d\n", t->basetype);
-						if(t->basetype == ARG_TYPE_PTR && !t->basetype_ref)		//DEBUG
-						{
-							logPrintf("XML parse error: pointer with no basetype_ref!\n");
-							return -1;
-						}
 						
 						// FIXME wait... are char and unsigned char * strings different ?!?! FIXME
-						if(t->basetype == ARG_TYPE_PTR && !argsize && (t->basetype_ref->basetype == ARG_TYPE_CHAR || t->basetype_ref->basetype == ARG_TYPE_UCHAR))
+						if(t->basetype == ARG_TYPE_PTR && !argsize && t->basetype_ref && (t->basetype_ref->basetype == ARG_TYPE_CHAR || t->basetype_ref->basetype == ARG_TYPE_UCHAR))
 							a |= ARG_TYPE_STR;
-						else if(t->basetype == ARG_TYPE_PTR && !argsize && t->basetype_ref->basetype == ARG_TYPE_WCHAR)
+						else if(t->basetype == ARG_TYPE_PTR && !argsize && t->basetype_ref && t->basetype_ref->basetype == ARG_TYPE_WCHAR)
 							a |= ARG_TYPE_WSTR;
 						else if(t->basetype == ARG_TYPE_PTR)
 						{
-							a |= t->basetype_ref->basetype;
+							if(t->basetype_ref)
+								a |= t->basetype_ref->basetype;
+							else
+								a |= ARG_TYPE_PTR;
 							a |= ARGSPECPOINTER;
 						}
 						else
@@ -1340,6 +1357,9 @@ parse_handlearg:
 						arg_spec->type = a;			//i.e., the eventual dereferenced type... 
 						logPrintf("\toffset %d %d\n", arg_spec->offset, ad->offset);
 					}
+					else if(!is_return_value && CURRENT_SCOPE->defines != scope::type && CURRENT_SCOPE->defines != scope::type_closed)	//don't log but still an argument... 
+						functionargument_index++;
+
 					if(is_return_value && !is_an_element)
 						is_return_value = false;
 				}
@@ -1368,7 +1388,7 @@ parse_handlearg:
 						logPrintf("XML parse error: type %s arg not found\n", argtype);
 						return -1;
 					}
-					if(t->basetype == ARG_TYPE_PTR)
+					if(t->basetype == ARG_TYPE_PTR && t->basetype_ref)
 						enter_scope(t->basetype_ref->scope);
 					else if(t->basetype == ARG_TYPE_STRUCT)
 						enter_scope(t->scope);
@@ -1384,7 +1404,7 @@ parse_handlearg:
 						a = 0;
 						if(log == tru || precall == tru || postcall == tru)
 						{
-							if(precall != fase && !is_return_value)
+							if(((precall != fase && postcall != tru) || precall == tru) && !is_return_value)
 								a |= ARGSPECOFPRECALLINTEREST;
 							if(postcall == tru || (is_return_value && postcall != fase))
 								a |= ARGSPECOFPOSTCALLINTEREST;
@@ -1394,7 +1414,10 @@ parse_handlearg:
 								logPrintf("XML parse error: high base type %d\n", t->basetype);
 							if(t->basetype == ARG_TYPE_PTR)
 							{
-								a |= t->basetype_ref->basetype;
+								if(t->basetype_ref)
+									a |= t->basetype_ref->basetype;
+								else
+									a |= ARG_TYPE_PTR;
 								a |= ARGSPECPOINTER;
 							}
 							else
@@ -1493,7 +1516,7 @@ parse_handlearg:
 					argsize = NULL;
 				}
 			}
-			else if(wstrncmp(d, "return", 6) == 0)
+			else if(strnicmp_0(d, "return", 6) == 0)
 			{
 				//<return attributes...
 				if(!functionname)
@@ -1512,7 +1535,7 @@ parse_handlearg:
 				is_an_element = false;
 				goto parse_handlearg;
 			}
-			else if(wstrncmp(d, "success", 7) == 0)
+			else if(strnicmp_0(d, "success", 7) == 0)
 			{
 				//<success attributes...
 				if(!functionname)
@@ -1524,44 +1547,45 @@ parse_handlearg:
 				whitespace(&d);
 				while(d < end && *d != '/')
 				{
-					if(wstrncmp(d, "return", 6) == 0)
+					if(strnicmp_0(d, "return", 6) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
 						whitespace(&d);
 						d++;
-						if(wstrncmp(d, "equal", 5) == 0)
+						if(strnicmp_0(d, "equal", 5) == 0)
 						{
 							d += 5;
 						}
-						else if(wstrncmp(d, "notequal", 8) == 0)
+						else if(strnicmp_0(d, "notequal", 8) == 0)
 						{
 							d += 8;
 						}
-						else if(wstrncmp(d, "lessthan", 8) == 0)
+						else if(strnicmp_0(d, "lessthan", 8) == 0)
 						{
 							d += 8;
 						}
-						else if(wstrncmp(d, "lessthanorequal", 15) == 0)
+						else if(strnicmp_0(d, "lessthanorequal", 15) == 0)
 						{
 							d += 15;
 						}
-						else if(wstrncmp(d, "greaterthan", 11) == 0)
+						else if(strnicmp_0(d, "greaterthan", 11) == 0)
 						{
 							d += 11;
 						}
-						else if(wstrncmp(d, "greaterthanorequal", 18) == 0)
+						else if(strnicmp_0(d, "greaterthanorequal", 18) == 0)
 						{
 							d += 18;
 						}
 						else
 						{
 							logPrintf("XML parse error: bad success return qualifier\n");
-							return -1;
+							i = countto(d, '/');
+							d += i - 1;		//because we add 1... 
 						}
 						d++;
 					}
-					else if(wstrncmp(d, "value", 5) == 0)
+					else if(strnicmp_0(d, "value", 5) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
@@ -1579,7 +1603,9 @@ parse_handlearg:
 					{
 						logPrintf("XML parse error: bad success attribute\n");
 						xmldebugPrint(d, 10);
-						return -1;
+						// FIXME what about comma, another attribute, etc..
+						i = countto(d, '/');
+						d += i;
 					}
 					whitespace(&d);
 				}
@@ -1599,11 +1625,20 @@ void whitespace(char ** d)
 		(*d)++;
 }
 
-int wstrncmp(char * a, char * b, int n)
+int strnicmp_0(char * a, char * b, int n)
 {
+	char _a, _b;
 	while(n--)
 	{
-		if(*a != *b)
+		if(*a >= 'A' && *a <= 'Z')
+			_a = *a - 'A' + 'a';
+		else
+			_a = *a;
+		if(*b >= 'A' && *b <= 'Z')
+			_b = *b - 'A' + 'a';
+		else
+			_b = *b;
+		if(_a != _b)
 			return -1;
 		a++;
 		b++;
@@ -1650,6 +1685,11 @@ char * get_quoted_value(char ** d)
 	(*d)++;
 
 	i = countto(*d, quote);
+	if(**d >= '0' && **d <= '9')
+	{
+		(*d)--;
+		return NULL;
+	}
 	str = (char *)malloc_0((i * sizeof(char)) + 1);
 	memcpy_0(str, *d, i * sizeof(char));
 	str[i] = 0x00;
