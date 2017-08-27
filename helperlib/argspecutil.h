@@ -20,6 +20,7 @@ typedef unsigned long argchecktype;
 typedef struct arg_spec
 {
 	char * arg_name;
+	char * arg_value;
 	unsigned long offset;
 	argchecktype type;
 	struct arg_spec * deref;			//could use union, but how do we make sure about the mask...

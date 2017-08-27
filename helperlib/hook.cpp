@@ -46,6 +46,7 @@ value_t g_next_dispatch_length;
 
 int isofprecallinterest(argtypep arg);
 int isofpostcallinterest(argtypep arg);
+void assign_arg_ref(void * p, argtypep arg);
 void dispatch_arg(void * p, argtypep arg);
 int hook_import_table(char * baseaddr, unsigned int size, bool unhook=false);
 struct hooked_func * shouldwehook(char * libname, unsigned short ordinal, char * funcname);
@@ -85,6 +86,12 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 #else
 			dispatch_arg((char *)curhook_stackpointer + OUR_SP_ADDITIONS + 4, arg_spec);
 #endif //_WIN64
+		if(!(arg_spec->type & ARGSPECRETURN_VALUE) && isofpostcallinterest(arg_spec))
+#ifdef _WIN64
+			assign_arg_ref((char *)curhook_stackpointer + OUR_SP_ADDITIONS + 8, arg_spec);
+#else
+			assign_arg_ref((char *)curhook_stackpointer + OUR_SP_ADDITIONS + 4, arg_spec);
+#endif //_WIN64
 		arg_spec = arg_spec->next_spec;
 	}
 
@@ -93,6 +100,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	logPrintf("orig func %08x%08x\n", PRINTARG64(curhook_hfstruct->origfunc));
 #else
 #endif //_WIN64
+	__debugbreak();
 	curhook_stackandretval = call_orig_func_as_if(curhook_stackpointer, curhook_hfstruct->origfunc, RETURNTOHERE);		//need to leave critical section
 	logPrintf("returns:\n");
 	/* How do we differentiate return values in the log FIXME */
@@ -108,12 +116,12 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 			if(arg_spec->type & ARGSPECRETURN_VALUE)
 				dispatch_arg((char *)curhook_stackandretval, arg_spec);
 			else
-				dispatch_arg((char *)curhook_stackandretval + OUR_SP_ADDITIONS + 8, arg_spec);
+				dispatch_arg(NULL, arg_spec);
 #else
 			if(arg_spec->type & ARGSPECRETURN_VALUE)
 				dispatch_arg((char *)curhook_stackandretval, arg_spec);
 			else
-				dispatch_arg((char *)curhook_stackandretval + OUR_SP_ADDITIONS + 4, arg_spec);
+				dispatch_arg(NULL, arg_spec);
 #endif //_WIN64
 		}
 		arg_spec = arg_spec->next_spec;
@@ -144,6 +152,12 @@ int isofpostcallinterest(argtypep arg)
 	return 0;
 }
 
+void assign_arg_ref(void * p, argtypep arg)
+{
+	arg->arg_value = *((char **)((char *)p + arg->offset));
+	logPrintf("Assigning %p\n", arg->arg_value);
+}
+
 /* maybe we want a try/catch here for exceptions but... if the process is throwing
  * bad data to apis, we're out anyway and we shouldn't be looking at anything
  * assumed to be uninitialized, or at least not dereferencing it*/
@@ -159,10 +173,16 @@ void dispatch_arg(void * p, argtypep arg)
 	 * to do a lookup where we can store some variable names from the XML FIXME */
 	try
 	{
-	type = arg->type;
-	logPrintf("p %p deref %p offset %d\n", p, arg->deref, arg->offset);
-	p = (char *)p + arg->offset;
-	
+		type = arg->type;
+		logPrintf("p %p deref %p offset %d\n", p, arg->deref, arg->offset);
+		if(p)
+			p = (char *)p + arg->offset;
+		else
+		{
+			__debugbreak();
+			p = &(arg->arg_value);
+		}
+
 	while(arg->deref)
 	{
 		logPrintf("...p %p deref %p offset %d\n", p, arg->deref, arg->offset);
@@ -172,10 +192,10 @@ void dispatch_arg(void * p, argtypep arg)
 
 	if(type & ARGSPECARRAY)
 		logPrintf("WARNING: dispatch array argument unhandled!\n");
-	if(g_next_dispatch_length > 1000)
+	if(g_next_dispatch_length > 0x10000)
 	{
 		logPrintf("High dispatch, limiting %d\n", g_next_dispatch_length);
-		g_next_dispatch_length = 1000;
+		g_next_dispatch_length = 0x10000;
 	}
 	if(g_next_dispatch_length < 0)
 	{
@@ -188,6 +208,8 @@ void dispatch_arg(void * p, argtypep arg)
 		case ARG_TYPE_INT8:
 			if(type & ARGSPECLENRELATED)
 			{
+				/* All we have to do is forget a postcall for a precall in the XML and the deref
+				 * here will choke on a length pointer... FIXME */
 				if(type & ARGSPECPOINTER)
 					g_next_dispatch_length = (value_t)**(char **)p;
 				else
