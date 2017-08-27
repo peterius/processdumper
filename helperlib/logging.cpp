@@ -101,11 +101,14 @@ void logData(unsigned char * data, unsigned int size)
 	if(i == size)
 		return;
 	s = i;
-	while(i < size - 4)
+	if(size > 4)
 	{
-		_sprintf(line, "%02x%02x%02x%02x ", data[i], data[i + 1], data[i + 2], data[i + 3]);
-		_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
-		i += 4;
+		while(i < size - 4)
+		{
+			_sprintf(line, "%02x%02x%02x%02x ", data[i], data[i + 1], data[i + 2], data[i + 3]);
+			_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+			i += 4;
+		}
 	}
 	while(i < size)
 	{
@@ -155,10 +158,13 @@ void logwData(unsigned char * data, unsigned int size)
 		}
 	}
 	s = i;
-	while(i < size - 4)
+	if(size > 4)
 	{
-		logwPrintf(L"%02x%02x%02x%02x ", data[i], data[i + 1], data[i + 2], data[i + 3]);
-		i += 4;
+		while(i < size - 4)
+		{
+			logwPrintf(L"%02x%02x%02x%02x ", data[i], data[i + 1], data[i + 2], data[i + 3]);
+			i += 4;
+		}
 	}
 	while(i < size)
 	{
