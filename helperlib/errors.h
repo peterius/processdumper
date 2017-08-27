@@ -21,4 +21,5 @@
 #define CREATETOOLHELP_FAILED						-6
 #define MODULEFIRST_FAILED							-7
 
+/* Because I suspect DLL_THREAD_ATTACH can silently kill us... */
 #define HELPERLIB_SUCCESS							67
