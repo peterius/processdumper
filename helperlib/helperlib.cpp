@@ -323,6 +323,7 @@ int fix_imports(void)
 	vsnprintf_0 = (vsnprintfPtr)OurGetProcAddress(stdlib, "vsnprintf");
 	vsnwprintf_0 = (vsnwprintfPtr)OurGetProcAddress(stdlib, "_vsnwprintf");
 	snprintf_0 = (snprintfPtr)OurGetProcAddress(stdlib, "snprintf");
+	// FIXME FIXME FIXME this fails... but we don't seem to use it anywhere... 
 	strlen_0 = (strlenPtr)OurGetProcAddress(stdlib, "strlen");
 	wcslen_0 = (wcslenPtr)OurGetProcAddress(stdlib, "wcslen");
 	strcmp_0 = (strcmpPtr)OurGetProcAddress(stdlib, "strcmp");
