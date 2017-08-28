@@ -113,6 +113,7 @@ cleanup_hooking PROC
 cleanup_hooking ENDP
 
 hijackcaller PROC
+	pushfq
 	push rax
 	push rbx
 	push rcx
@@ -128,8 +129,8 @@ hijackcaller PROC
 	push rbp
 	push rdi
 	push rsi
-	mov rdx,[rsp+78h]
-	mov rcx,[rsp+80h]
+	mov rdx,[rsp+80h]
+	mov rcx,[rsp+88h]
 	sub rsp,20h
 	call rdx
 	add rsp,20h
@@ -148,6 +149,8 @@ hijackcaller PROC
 	pop rcx
 	pop rbx
 	pop rax
+	popfq
+	add rsp,10h			;remove the hijackcaller arguments
 	ret
 hijackcaller ENDP
 
