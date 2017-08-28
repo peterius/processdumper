@@ -45,6 +45,9 @@ int install_driver(void)
 
 int uninstall_driver(void)
 {
+	//in case we're just calling this cold:
+	GetFullPathName(DRIVER_NAME_WIDE, MAX_PATH, fullpath, NULL);
+	GetFullPathNameA(DRIVER_NAME, MAX_PATH, fullpatha, NULL);
 	load_unload_driver(false);
 	DeleteFileA(DRIVER_NAME);
 	return 0;

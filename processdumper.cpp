@@ -18,7 +18,9 @@
 #include <Psapi.h>
 #include <TlHelp32.h>
 #include <VersionHelpers.h>
-#include <signal.h>  
+#include <signal.h>
+#include <Shlobj.h>
+#include <Shlwapi.h>
 #include "kernelreplacements.h"
 #include "libraryloader.h"
 #include "loadfiles.h"
@@ -30,8 +32,6 @@
 
 #define NOINJECTIONCOMM
 #define FUNCTIONSTOHOOKFILE			L"functionstohook.xml"
-#define HELPERLOGFILE				"C:\\Users\\Peterius\\Documents\\anothergoddamnday.log"
-
 
 typedef struct _CLIENT_ID
 {
@@ -323,9 +323,18 @@ int main(int argc, char ** argv)
 			functionstohookfilename = (char *)malloc(strlen(argv[i]) + 1);
 			sprintf(functionstohookfilename, argv[i]);
 		}
+		else if(strcmp("--uninstall", argv[i]) == 0)
+		{
+			if(uninstall_driver() < 0)
+				fprintf(stderr, "Failed to uninstall driver\n");
+			else
+				printf("Uninstalled driver\n");
+			return 0;
+		}
 		else if(strcmp("--help", argv[i]) == 0 || strcmp("-h", argv[i]) == 0)
 		{
 			printf("./processdumper -bdnj -o [dirname] -p [pid] -r [previousoutdir] -q [previousoutdir] -l [logfile]\n");
+			printf("\t\t\t--uninstall\n");
 			printf("\t-r [outdir]: reconstruct from previous output directory\n");
 			printf("\t-q [outdir]: query previously reconstituted exe/dll\n");
 			printf("\t-d: don't produce output files or reconstitute\n");
@@ -334,6 +343,7 @@ int main(int argc, char ** argv)
 			printf("\t-j: don't createremotethread, hijack one by default\n");
 			printf("\t-l [logfilename]: injected library will log to this file\n");
 			printf("\t--functions [xmlfile]: specify functions to hook\n");
+			printf("\t--uninstall: uninstall driver and exit\n");
 			return 0;
 		}
 	}
@@ -374,8 +384,24 @@ int main(int argc, char ** argv)
 
 	if(!helperlogfilename)
 	{
-		helperlogfilename = (char *)malloc(strlen(HELPERLOGFILE) + 1);
-		sprintf(helperlogfilename, HELPERLOGFILE);
+		PWSTR documentsfolder;
+		documentsfolder = (PWSTR)malloc(500);
+		char line[500];
+		SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, (PWSTR *)&documentsfolder);
+		WideCharToMultiByte(CP_UTF8, 0, (LPWSTR)documentsfolder, -1, line, 500, NULL, NULL);
+		free(documentsfolder);
+		sprintf(line, "%s\\%s", line, "processdumper");
+		if(!PathFileExistsA(line))
+		{
+			if(!CreateDirectoryA(line, NULL))
+			{
+				fprintf(stderr, "Can't create directory: %s\n", line);
+				return -1;
+			}
+		}
+		sprintf(line, "%s\\%s.log", line, outputdirname);
+		helperlogfilename = (char *)malloc(strlen(line) + 1);
+		sprintf(helperlogfilename, line);
 	}
 
 	if(driver && install_driver() < 0)
@@ -746,8 +772,31 @@ int main(int argc, char ** argv)
 
 			sigaction(SIGINT, &sigIntHandler, NULL);*/
 
-			signal(SIGINT, sigintcatch);
-			while(1) {}			//wait for sigint
+			//signal(SIGINT, sigintcatch);
+			//while(1) {}			//wait for sigint
+
+			printf("Quit and unhook or don't unhook? (u/d)\n");
+			int done = 0;
+			char c;
+			while(!done)
+			{
+				sscanf("%c", &c);
+				if(c == 'u' || c == 'd')
+					done = 1;
+			}
+			if(c == 'u')
+			{
+				if(g_injectedbaseaddress)
+				{
+					pH = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, g_pid);
+					if(!pH || pH == INVALID_HANDLE_VALUE)
+					{
+						fprintf(stderr, "uninject process OpenProcess failed (%d)\n", GetLastError());
+					}
+					else
+						uninjectProcess(pH);
+				}
+			}
 		}
 	}
 
@@ -1222,7 +1271,6 @@ int ListProcessThreads(uint32_t pid)
 	return 0;
 }
 
-#define ERROR_PARTIAL_COPY					299
 //closes previously opened handle for wow64 check, dll choice, a little ugly...
 int injectProcess(HANDLE pH, char * code, unsigned int size)
 {
