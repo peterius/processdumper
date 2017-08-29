@@ -288,7 +288,7 @@ void cleanup_scope(struct scope * scope)
 		{
 			if(i >= BASETYPES_WITHSTRINGS && scope->type_definition[i]->name)			//don't free basetype names...
 				free_0(scope->type_definition[i]->name);
-			if(scope->type_definition[i]->size_name)
+			if(scope->type_definition[i]->size_name && scope->type_definition[i]->size_name > (char *)0x10000)
 				free_0(scope->type_definition[i]->size_name);
 		}
 		free_0(scope->type_definition[i]);
@@ -1180,9 +1180,12 @@ parse_handletype:
 				}
 				valuename = NULL;
 			}
-			else if(strnicmp_0(d, "element", 7) == 0)
+			else if(strnicmp_0(d, "element", 7) == 0 || strnicmp_0(d, "field", 5) == 0)
 			{
-				d += 7;
+				if(d[0] == 'e' || d[0] == 'E')
+					d += 7;
+				else
+					d += 5;
 				is_an_element = true;
 				if(CURRENT_SCOPE->defines == scope::type)			//still defining...
 					goto parse_handletype;
