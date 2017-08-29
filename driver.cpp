@@ -34,9 +34,6 @@ int install_driver(void)
 {
 	GetFullPathName(DRIVER_NAME_WIDE, MAX_PATH, fullpath, NULL);
 	GetFullPathNameA(DRIVER_NAME, MAX_PATH, fullpatha, NULL);
-	/*load_unload_driver(false);
-	DeleteFileA(DRIVER_NAME);
-	exit(0);*/
 	if(saveDriverData() < 0)
 		{ fprintf(stderr, "Failed to save driver data\n"); return -1; }
 	load_unload_driver(true);
