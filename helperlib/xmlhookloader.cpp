@@ -38,6 +38,7 @@ WideCharToMultiBytePtr WideCharToMultiByte_0;
 struct type_def
 {
 	char * name;
+	char * size_name;
 	unsigned short basetype;
 	unsigned short offset;
 	struct type_def * offset_relative_to;
@@ -142,6 +143,7 @@ void create_basic_types(void)
 	{
 		scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
 		scope_list[0]->type_definition[i]->name = base_type_names[i];
+		scope_list[0]->type_definition[i]->size_name = NULL;
 		scope_list[0]->type_definition[i]->basetype = i;
 		scope_list[0]->type_definition[i]->basetype_ref = NULL;
 		scope_list[0]->type_definition[i]->scope = NULL;
@@ -152,6 +154,7 @@ void create_basic_types(void)
 	i++;
 	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
 	scope_list[0]->type_definition[i]->name = struct_type;
+	scope_list[0]->type_definition[i]->size_name = NULL;
 	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_STRUCT;
 	scope_list[0]->type_definition[i]->basetype_ref = NULL;
 	scope_list[0]->type_definition[i]->scope = NULL;
@@ -179,6 +182,7 @@ void create_basic_types(void)
 	i++;
 	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
 	scope_list[0]->type_definition[i]->name = bool_type;
+	scope_list[0]->type_definition[i]->size_name = NULL;
 	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_BOOL;
 	scope_list[0]->type_definition[i]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT8];			//double check FIXME FIXME FIXME
 	scope_list[0]->type_definition[i]->scope = NULL;
@@ -187,6 +191,7 @@ void create_basic_types(void)
 	i++;
 	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
 	scope_list[0]->type_definition[i]->name = ip4_type;
+	scope_list[0]->type_definition[i]->size_name = NULL;
 	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_IP4;
 	scope_list[0]->type_definition[i]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT32];
 	scope_list[0]->type_definition[i]->scope = NULL;
@@ -196,6 +201,7 @@ void create_basic_types(void)
 	/* FIXME FIXME FIXME IP6 */
 	scope_list[0]->type_definition[i] = (struct type_def *)malloc_0(sizeof(struct type_def));
 	scope_list[0]->type_definition[i]->name = ip6_type;
+	scope_list[0]->type_definition[i]->size_name = NULL;
 	scope_list[0]->type_definition[i]->basetype = ARG_TYPE_IP6;
 	scope_list[0]->type_definition[i]->basetype_ref = scope_list[0]->type_definition[ARG_TYPE_UINT32];
 	scope_list[0]->type_definition[i]->scope = NULL;
@@ -282,6 +288,8 @@ void cleanup_scope(struct scope * scope)
 		{
 			if(i >= BASETYPES_WITHSTRINGS && scope->type_definition[i]->name)			//don't free basetype names...
 				free_0(scope->type_definition[i]->name);
+			if(scope->type_definition[i]->size_name)
+				free_0(scope->type_definition[i]->size_name);
 		}
 		free_0(scope->type_definition[i]);
 	}
@@ -620,6 +628,7 @@ int parse(char * data, unsigned int size)
 	char * valuename;
 	char * valuevalue;
 	char * typevalue;
+	char * typesize;
 	char * typenamestr;
 	char * typebasetype;
 	char * argname;
@@ -646,6 +655,7 @@ int parse(char * data, unsigned int size)
 	argchecktype a;
 
 	value_t numericvalue;
+	value_t sizevalue;
 	svalue_t negvalue;
 
 	inlibname = NULL;
@@ -653,6 +663,7 @@ int parse(char * data, unsigned int size)
 	valuename = NULL;
 	valuevalue = NULL;
 	typevalue = NULL;
+	typesize = NULL;
 	typenamestr = NULL;
 	typebasetype = NULL;
 	hfstruct = NULL;
@@ -961,6 +972,7 @@ int parse(char * data, unsigned int size)
 parse_handletype:
 				whitespace(&d);
 				bool offset = false;
+				sizevalue = 0;
 				while(d < end && *d != '/')
 				{
 					if(*d == '>')
@@ -982,6 +994,27 @@ parse_handletype:
 						d += i + 1;
 						whitespace(&d);
 						typevalue = get_quoted_value(&d);
+					}
+					else if(strnicmp_0(d, "size", 4) == 0)
+					{
+						i = countto(d, '=');
+						d += i + 1;
+						whitespace(&d);
+						if(ISNUMBER(*(d + 1)))
+						{
+							sizevalue = get_quoted_numeric_value(&d, NULL);
+							if(typesize)
+								logPrintf("XML parse error: two value values!\n");
+							if(sizevalue > 0x10000)
+							{
+								logPrintf("XML parse warning: type size greater than 0x10000, capping\n");
+								sizevalue = 0x10000;
+							}
+						}
+						else
+						{
+							typesize = get_quoted_value(&d);
+						}
 					}
 					else if(strnicmp_0(d, "basetype", 8) == 0)
 					{
@@ -1009,6 +1042,7 @@ parse_handletype:
 				if(*d == '/')
 				{
 					d += 2;
+					t = NULL;
 					if(!typevalue)
 					{
 						if(typenamestr)
@@ -1040,6 +1074,19 @@ parse_handletype:
 					}
 					else
 						t = add_type(typenamestr, typevalue, 0, is_an_element);
+					if(t)
+					{
+						if(typesize)
+						{
+							t->size_name = typesize;
+							typesize = NULL;
+						}
+						else if(sizevalue)
+						{
+							t->size_name = (char *)sizevalue;
+							sizevalue = 0;
+						}
+					}
 				}
 				else
 				{
@@ -1280,11 +1327,23 @@ parse_handlearg:
 						//	__debugbreak();
 						//if(!argsize && t->basetype == ARG_TYPE_PTR)
 						//	__debugbreak();
-						if(((precall != fase && postcall != tru) || precall == tru) && !is_return_value)
+						if(precall == unspecified && proto)
+						{
+							if(proto->type & ARGSPECOFPRECALLINTEREST)
+								a |= ARGSPECOFPRECALLINTEREST;
+						}
+						else if(((precall != fase && postcall != tru) || precall == tru) && !is_return_value)
 							a |= ARGSPECOFPRECALLINTEREST;
-						if(postcall == tru || (is_return_value && postcall != fase))
+						if(postcall == unspecified && proto)
+						{
+							if(proto->type & ARGSPECOFPOSTCALLINTEREST)
+								a |= ARGSPECOFPOSTCALLINTEREST;
+						}
+						else if(postcall == tru || (is_return_value && postcall != fase))
 							a |= ARGSPECOFPOSTCALLINTEREST;
-						if(is_return_value)
+						if(proto && proto->type & ARGSPECRETURN_VALUE)
+							a |= ARGSPECRETURN_VALUE;
+						else if(is_return_value)
 							a |= ARGSPECRETURN_VALUE;
 						logPrintf("arg %s %04x\n", argname, a);
 						if(t->basetype > 20)
@@ -1350,7 +1409,16 @@ parse_handlearg:
 							ad->offset = (ARGUMENT_SIZE * functionargument_index++);
 						ad->arg_name = argname;
 						argname = NULL;
-						arg_spec->deref_len = (argtypep)argsize;				//make it easy for fixup_function_lengths
+						if(argsize)
+							arg_spec->deref_len = (argtypep)argsize;				//make it easy for fixup_function_lengths
+						else if(t->size_name)
+						{
+							argsize = (char *)malloc_0(strlen_0(t->size_name) + 1);
+							memcpy_0(argsize, t->size_name, strlen_0(t->size_name));
+							arg_spec->deref_len = (argtypep)argsize;
+						}
+						else
+							arg_spec->deref_len = NULL;
 						ad->deref = NULL;
 						ad->next_spec = NULL;
 						argsize = NULL;
@@ -1402,13 +1470,27 @@ parse_handlearg:
 					{
 						struct arg_spec * ad;
 						a = 0;
-						if(log == tru || precall == tru || postcall == tru)
+						if((log == tru || precall == tru || postcall == tru) ||
+							(log == unspecified && precall == unspecified && postcall == unspecified && proto
+								&& ((proto->type & ARGSPECOFPRECALLINTEREST) || (proto->type & ARGSPECOFPOSTCALLINTEREST))))
 						{
-							if(((precall != fase && postcall != tru) || precall == tru) && !is_return_value)
+							if(precall == unspecified && proto)
+							{
+								if(proto->type & ARGSPECOFPRECALLINTEREST)
+									a |= ARGSPECOFPRECALLINTEREST;
+							}
+							else if(((precall != fase && postcall != tru) || precall == tru) && !is_return_value)
 								a |= ARGSPECOFPRECALLINTEREST;
-							if(postcall == tru || (is_return_value && postcall != fase))
+							if(postcall == unspecified && proto)
+							{
+								if(proto->type & ARGSPECOFPOSTCALLINTEREST)
+									a |= ARGSPECOFPOSTCALLINTEREST;
+							}
+							else if(postcall == tru || (is_return_value && postcall != fase))
 								a |= ARGSPECOFPOSTCALLINTEREST;
-							if(is_return_value)
+							if(proto && proto->type & ARGSPECRETURN_VALUE)
+								a |= ARGSPECRETURN_VALUE;
+							else if(is_return_value)
 								a |= ARGSPECRETURN_VALUE;
 							if(t->basetype > 20)
 								logPrintf("XML parse error: high base type %d\n", t->basetype);
