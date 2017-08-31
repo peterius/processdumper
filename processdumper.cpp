@@ -1485,8 +1485,10 @@ injectthread_skip_to_hijack:
 			texitcode = hijack_some_thread(pH, entryaddress, (LPVOID)port);
 			if(texitcode < 0)
 			{
-				printf("Injection procedure likely failed: %d\n", texitcode);
+				printf("Second injection attempt procedure likely failed: %d\n", texitcode);
 				unhookaddress = 0;
+				CloseHandle(pH);
+				return -1;
 			}
 			//FIXME FIXME FIXME need some kind of sync object here ... 
 		}
@@ -1494,6 +1496,8 @@ injectthread_skip_to_hijack:
 		{
 			printf("Injection procedure likely failed: %d\n", texitcode);
 			unhookaddress = 0;
+			CloseHandle(pH);
+			return -1;
 		}
 	}
 	else
