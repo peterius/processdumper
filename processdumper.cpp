@@ -780,7 +780,7 @@ int main(int argc, char ** argv)
 			char c;
 			while(!done)
 			{
-				sscanf("%c", &c);
+				scanf("%c", &c);
 				if(c == 'u' || c == 'd')
 					done = 1;
 			}
