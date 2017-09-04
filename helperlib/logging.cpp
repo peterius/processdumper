@@ -82,11 +82,15 @@ void logData(unsigned char * data, unsigned int size)
 {
 	char line[80];
 	unsigned int i, s;
+	unsigned int samebytecount;
+	unsigned char samebyte;
 
 	_sprintf(line, "Data[%08x]:\n", size);
 	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	i = 0;
-	if(size > 0x10)
+	samebytecount = 0;
+	samebyte = 0x00;
+	if(size >= 0x10)
 	{
 		for(i = 0; i <= size - 0x10; i += 0x10)
 		{
@@ -96,6 +100,31 @@ void logData(unsigned char * data, unsigned int size)
 				CHARFORMAT(data[i]), CHARFORMAT(data[i + 1]), CHARFORMAT(data[i + 2]), CHARFORMAT(data[i + 3]), CHARFORMAT(data[i + 4]), CHARFORMAT(data[i + 5]), CHARFORMAT(data[i + 6]), CHARFORMAT(data[i + 7]),
 				CHARFORMAT(data[i + 8]), CHARFORMAT(data[i + 9]), CHARFORMAT(data[i + 0xa]), CHARFORMAT(data[i + 0xb]), CHARFORMAT(data[i + 0xc]), CHARFORMAT(data[i + 0xd]), CHARFORMAT(data[i + 0xe]), CHARFORMAT(data[i + 0xf]));
 			_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+			if(samebyte != data[i])
+			{
+				samebyte = data[i];
+				samebytecount = 0;
+			}
+			if(data[i + 1] == samebyte && data[i + 2] == samebyte && data[i + 3] == samebyte && data[i + 4] == samebyte && data[i + 5] == samebyte && data[i + 6] == samebyte && data[i + 7] == samebyte
+				&& data[i + 8] == samebyte && data[i + 9] == samebyte && data[i + 0xa] == samebyte && data[i + 0xb] == samebyte && data[i + 0xc] == samebyte && data[i + 0xd] == samebyte && data[i + 0xe] == samebyte && data[i + 0xf] == samebyte)
+				samebytecount++;
+			else
+				samebytecount = 0;
+			if(samebytecount == 4)
+			{
+				samebytecount = 0;
+				i += 0x10;
+				while(i <= size - 0x10 && data[i] == samebyte && data[i + 1] == samebyte && data[i + 2] == samebyte && data[i + 3] == samebyte && data[i + 4] == samebyte && data[i + 5] == samebyte && data[i + 6] == samebyte && data[i + 7] == samebyte
+					&& data[i + 8] == samebyte && data[i + 9] == samebyte && data[i + 0xa] == samebyte && data[i + 0xb] == samebyte && data[i + 0xc] == samebyte && data[i + 0xd] == samebyte && data[i + 0xe] == samebyte && data[i + 0xf] == samebyte)
+				{
+					samebytecount++;
+					i += 0x10;
+				}
+				i -= 0x10;	//for the for loop
+				_sprintf(line, "0x%08x lines of 0x10 %02x\n", samebytecount, samebyte);
+				_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+				samebytecount = 0;
+			}
 		}
 	}
 	if(i == size)
@@ -142,21 +171,52 @@ void logData(unsigned char * data, unsigned int size)
 void logwData(unsigned char * data, unsigned int size)
 {
 	unsigned int i, s, k;
+	unsigned int sameshortcount;
+	wchar_t sameshort;
 
 	_sprintf(line, "WData[%08x]:\n", size);
 	_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
 	i = 0;
-	if(size > 0x10)
+	sameshortcount = 0;
+	sameshort = 0x0000;
+	if(size >= 0x10)
 	{
-		for(i = 0; i < size - 0x10; i += 0x10)
+		for(i = 0; i <= size - 0x10; i += 0x10)
 		{
 			logwPrintf(L"%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %c%c%c%c%c%c%c%c\n",
 				data[i], data[i + 1], data[i + 2], data[i + 3], data[i + 4], data[i + 5], data[i + 6], data[i + 7],
 				data[i + 8], data[i + 9], data[i + 0xa], data[i + 0xb], data[i + 0xc], data[i + 0xd], data[i + 0xe], data[i + 0xf],
 				WCHARFORMATP(data)[i], WCHARFORMATP(data)[i + 1], WCHARFORMATP(data)[i + 2], WCHARFORMATP(data)[i + 3],
 				WCHARFORMATP(data)[i + 4], WCHARFORMATP(data)[i + 5], WCHARFORMATP(data)[i + 6], WCHARFORMATP(data)[i + 7]);
+			if(sameshort != WCHARFORMATP(data)[i])
+			{
+				sameshort = WCHARFORMATP(data)[i];
+				sameshortcount = 0;
+			}
+			if(WCHARFORMATP(data)[i + 1] == sameshort && WCHARFORMATP(data)[i + 2] == sameshort && WCHARFORMATP(data)[i + 3] == sameshort &&
+				WCHARFORMATP(data)[i + 4] == sameshort && WCHARFORMATP(data)[i + 5] == sameshort && WCHARFORMATP(data)[i + 6] == sameshort && WCHARFORMATP(data)[i + 7] == sameshort)
+				sameshortcount++;
+			else
+				sameshortcount = 0;
+			if(sameshortcount == 4)
+			{
+				sameshortcount = 0;
+				i += 0x10;
+				while(i <= size - 0x10 && WCHARFORMATP(data)[i] == sameshort && WCHARFORMATP(data)[i + 1] == sameshort && WCHARFORMATP(data)[i + 2] == sameshort && WCHARFORMATP(data)[i + 3] == sameshort &&
+					WCHARFORMATP(data)[i + 4] == sameshort && WCHARFORMATP(data)[i + 5] == sameshort && WCHARFORMATP(data)[i + 6] == sameshort && WCHARFORMATP(data)[i + 7] == sameshort)
+				{
+					sameshortcount++;
+					i += 0x10;
+				}
+				i -= 0x10;	//for the for loop
+				_sprintf(line, "0x%08x lines of 0x10 %04x\n", sameshortcount, sameshort);
+				_fwrite(line, sizeof(char), strlen_0(line), loggingfile);
+				sameshortcount = 0;
+			}
 		}
 	}
+	if(i == size)
+		return;
 	s = i;
 	if(size > 4)
 	{
