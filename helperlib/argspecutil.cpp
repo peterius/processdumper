@@ -51,7 +51,7 @@ struct arg_spec * copy_arg_spec_chain(struct arg_spec * s)
 	memcpy_0(r, s, sizeof(struct arg_spec));
 	ri = r;
 	ri->arg_name = NULL;
-	if(ri->deref_len > (argtypep)0x1000)
+	if(ri->deref_len > (argtypep)0x10000)
 		ri->deref_len = NULL;
 	s = s->deref;
 	while(s)
@@ -61,7 +61,7 @@ struct arg_spec * copy_arg_spec_chain(struct arg_spec * s)
 		// we do not want copies of these strings... we don't even use them
 		//end deref can set the arg_name on the first arg_spec if it wants... 
 		ri->deref->arg_name = NULL;
-		if(ri->deref->deref_len > (argtypep)0x1000)
+		if(ri->deref->deref_len > (argtypep)0x10000)
 			ri->deref->deref_len = NULL;
 		ri = ri->deref;
 		s = s->deref;
@@ -89,22 +89,6 @@ struct arg_spec * get_prev_arg_spec_deref(struct arg_spec * s, struct arg_spec *
 	return NULL;
 }
 
-void cleanup_arg_spec_deref(struct arg_spec * arg_spec)
-{
-	struct arg_spec * as;
-
-	while(arg_spec)
-	{
-		as = arg_spec->deref;
-		if(arg_spec->arg_name)
-			free_0(arg_spec->arg_name);
-		if(arg_spec->next_spec)				//DEBUG
-			logPrintf("ERROR: arg_spec deref with next_spec!!\n");
-		free_0(arg_spec);
-		arg_spec = as;
-	}
-}
-
 /* Cleans up all arguments to a function */
 void cleanup_arg_spec(struct arg_spec * arg_spec)
 {
@@ -115,7 +99,7 @@ void cleanup_arg_spec(struct arg_spec * arg_spec)
 		as = arg_spec->next_spec;
 		if(arg_spec->arg_name)
 			free_0(arg_spec->arg_name);
-		cleanup_arg_spec_deref(arg_spec->deref);			//must be deref since we free here besides... 
+		cleanup_arg_spec(arg_spec->deref);
 		free_0(arg_spec);
 		arg_spec = as;
 	}

@@ -14,14 +14,6 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 #pragma once
 
-#ifdef _WIN64
-typedef unsigned long long value_t;
-typedef long long svalue_t;
-#else
-typedef unsigned long value_t;
-typedef long svalue_t;
-#endif //_WIN64
-
 //base types
 
 #define ARG_TYPE_INT8					0

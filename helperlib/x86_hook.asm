@@ -35,6 +35,7 @@ Hook PROC
 	push ebp
 	push esi
 	push edi
+	push ebx
 	mov eax,esp		
 	push 66555467h			;can't use a variable
 	push eax
@@ -61,6 +62,7 @@ call_orig_func_as_if PROC
 	cmp byte ptr [esp+0ch],dl
 	je @@rettohandler
 	mov esp,[esp+4h]
+	pop ebx
 	pop edi
 	pop esi
 	pop ebp
@@ -70,6 +72,7 @@ call_orig_func_as_if PROC
 	mov saveretvalue,edx
 	mov edx,[esp+4h]
 	mov esp,edx
+	pop ebx
 	pop edi
 	pop esi
 	pop ebp
@@ -78,6 +81,7 @@ call_orig_func_as_if PROC
 	push ebp
 	push esi
 	push edi
+	push ebx
 	push eax		; the return value
 	mov eax,esp		; return stack with return value
 	sub esp,30h		; for good luck!
@@ -89,6 +93,7 @@ cleanup_hooking PROC
 	mov ecx,[esp+08h]
 	mov esp,[esp+4h]
 	pop eax				; restore real return value
+	pop ebx
 	pop edi
 	pop esi
 	pop ebp
