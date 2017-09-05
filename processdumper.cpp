@@ -33,6 +33,14 @@
 #define NOINJECTIONCOMM
 #define FUNCTIONSTOHOOKFILE			L"functionstohook.xml"
 
+char * helper_lib_error_strings[] = { "", "",
+"helper library imports failed",
+"unable to open logging file",
+"VirtualAlloc for hooks failed",
+"xml file load failed",
+"CreateToolhelp failed",
+"ModuleFirst failed" };
+
 typedef struct _CLIENT_ID
 {
 	PVOID UniqueProcess;
@@ -1494,7 +1502,7 @@ injectthread_skip_to_hijack:
 		}
 		else
 		{
-			printf("Injection procedure likely failed: %d\n", texitcode);
+			printf("Injection procedure likely failed: %d: %s\n", texitcode, helper_lib_error_strings[-texitcode]);
 			unhookaddress = 0;
 			CloseHandle(pH);
 			return -1;
