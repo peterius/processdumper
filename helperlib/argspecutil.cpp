@@ -18,9 +18,11 @@
 #include "logging.h"
 #include "argspecutil.h"
 
+//changed to only reorder if... 
 void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec * q)
 {
 	struct arg_spec *b, *c;
+	int found_r = 0;
 	if(q->next_spec == r)
 		return;
 	b = q->next_spec;
@@ -29,6 +31,8 @@ void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec *
 		c = a->next_spec;
 		if(c == q)
 		{
+			if(!found_r)
+				return;
 			a->next_spec = b;
 			a = b;
 		}
@@ -37,6 +41,7 @@ void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec *
 			a->next_spec = q;
 			q->next_spec = r;
 			a = r;
+			found_r = 1;
 		}
 		else
 			a = c;
@@ -77,15 +82,21 @@ struct arg_spec * deref_end(struct arg_spec * s)
 		return s;
 }
 
-struct arg_spec * get_prev_arg_spec_deref(struct arg_spec * s, struct arg_spec * e)
+struct arg_spec * get_container_by_deref(struct arg_spec * cont, struct arg_spec * s, struct arg_spec * e)
 {
-	while(s != e)
+	struct arg_spec * s2;
+	while(s && s != e)
 	{
-		if(s->deref == e)
-			return s;
-		s = s->deref;
+		if(s->deref)
+		{
+			s2 = get_container_by_deref(s, s->deref, e);
+			if(s2)
+				return s2;
+		}
+		s = s->next_spec;
 	}
-	logPrintf("ERROR: Can't get previous arg_spec deref!!\n");
+	if(s == e)
+		return cont;
 	return NULL;
 }
 

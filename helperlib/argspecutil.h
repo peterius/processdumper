@@ -50,5 +50,5 @@ typedef struct arg_spec
 void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec * q);
 struct arg_spec * copy_arg_spec_chain(struct arg_spec * s);
 struct arg_spec * deref_end(struct arg_spec * s);
-struct arg_spec * get_prev_arg_spec_deref(struct arg_spec * s, struct arg_spec * e);
+struct arg_spec * get_container_by_deref(struct arg_spec * cont, struct arg_spec * s, struct arg_spec * e);
 void cleanup_arg_spec(struct arg_spec * arg_spec);

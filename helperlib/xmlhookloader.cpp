@@ -99,8 +99,10 @@ struct value * lookup_value(char * name);
 void add_value_by_name(char * name, char * value);
 void add_value(char * name, value_t value);
 void add_signed_value(char * name, svalue_t value);
-void fixup_function_lengths(struct hooked_func * hfstruct);
-void fixup_function_lengths_helper(struct arg_spec * i, struct arg_spec * ci);
+void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i);
+struct arg_spec * find_deref_len(struct arg_spec * j, char * deref_len_name);
+void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, struct arg_spec * j);
+int arg_spec_contains(struct arg_spec * c, struct arg_spec * i);
 int parse(char * data, unsigned int size);
 void xmldebugPrint(char * d, int s);
 void whitespace(char ** d);
@@ -532,63 +534,122 @@ void add_signed_value(char * name, svalue_t value)
 
 #define RESOLVE_LEN_NAME					1
 #define LEN_NAME_RESOLVED					0
-void fixup_function_lengths(struct hooked_func * hfstruct)
+void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i = NULL)
 {
-	fixup_function_lengths_helper(hfstruct->arg, NULL);
-}
+	struct arg_spec * j;
 
-void fixup_function_lengths_helper(struct arg_spec * i, struct arg_spec * ci)
-{
-	struct arg_spec * j, *j1;
-	struct arg_spec * i1 = i;
-	struct arg_spec * ii;
+	if(!i)
+		i = hfstruct->arg;
 	while(i)
 	{
 		if(i->index == RESOLVE_LEN_NAME && i->deref_len > (argtypep)0x10000)
 		{
 			logPrintf("fflh needs %s... looking for %s\n", i->arg_name, (char *)i->deref_len);
-			j1 = i1;
-fflh_one_more_time:
-			j = j1;
-			while(j)
+			if((j = find_deref_len(hfstruct->arg, (char *)i->deref_len)))
 			{
-				if(j->arg_name)
-					logPrintf("jj %s\n", j->arg_name);
-				if((j->arg_name && strcmp_0(j->arg_name, (char *)i->deref_len) == 0) ||
-					(!j->arg_name && strcmp_0((char *)i->deref_len, "return") == 0 && (j->type & ARGSPECRETURN_VALUE)))
-				{
-					if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
-						logPrintf("XML parse warning: pre/post call flags don't match on length defined buffer %04x for %04x\n", j->type, i->type);
-					
-					if(j1 != ci)
-						insert_arg_spec(i1, i, j);
-					else
-					{
-						ii = ci;
-						while(ii->deref != i1)
-							ii = ii->deref;
-						insert_arg_spec(ci, ii, j);
-					}
-					j->type |= ARGSPECLENRELATED;
-					free_0(i->deref_len);				//this is the name string for the reference
-					i->deref_len = j;
-					i->index = LEN_NAME_RESOLVED;
-					logPrintf("assigning %s len %s\n", i->arg_name, j->arg_name);
-					break;
-				}
-				j = j->next_spec;
-			}
+				if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
+					logPrintf("XML parse warning: pre/post call flags don't match on length defined buffer %04x for %04x\n", j->type, i->type);
 
-			if(ci && j1 != ci)
-			{
-				j1 = ci;
-				goto fflh_one_more_time;
+				reorder_for_length(hfstruct, i, j);
+
+				j->type |= ARGSPECLENRELATED;
+				free_0(i->deref_len);				//this is the name string for the reference
+				i->deref_len = j;
+				i->index = LEN_NAME_RESOLVED;
+				logPrintf("assigning %s len %s\n", i->arg_name, j->arg_name);
 			}
 		}
 
-		fixup_function_lengths_helper(i->deref, i1);
+		if(i->deref)		//must check
+			fixup_function_lengths(hfstruct, i->deref);
 		i = i->next_spec;
 	}
+}
+
+struct arg_spec * find_deref_len(struct arg_spec * j, char * deref_len_name)
+{
+	struct arg_spec * j2;
+	while(j)
+	{
+		// if this is a pointer to the size... there will be a deref but I guess that's okay... 
+		if((j->arg_name && strcmp_0(j->arg_name, deref_len_name) == 0) ||
+			(!j->arg_name && strcmp_0(deref_len_name, "return") == 0 && (j->type & ARGSPECRETURN_VALUE)))
+		{
+			return j;
+		}
+		if(j->deref)
+		{
+			j2 = find_deref_len(j->deref, deref_len_name);
+			if(j2)
+				return j2;
+		}
+		j = j->next_spec;
+	}
+	return NULL;
+}
+
+void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, struct arg_spec * j)
+{
+	struct arg_spec * d;
+	struct arg_spec * cont;
+
+	cont = get_container_by_deref(NULL, hfstruct->arg, j);
+	logPrintf("%p within %p\n", j, cont);
+	while(cont)
+	{
+		logPrintf("cont\n");
+		d = cont->deref;
+		while(d)
+		{
+			logPrintf("checking %p %s for %s\n", d, d->arg_name, i->arg_name);
+			if(arg_spec_contains(d, i))
+			{
+				logPrintf("okay\n");
+				insert_arg_spec(cont, d, j);
+				return;
+			}
+			d = d->next_spec;
+		}
+		j = cont;
+		cont = get_container_by_deref(NULL, hfstruct->arg, j);
+		logPrintf("stepping up maybe to %p\n", cont);
+		logPrintf("%p within %p\n", j, cont);
+	}
+	logPrintf("no cont\n");
+	d = hfstruct->arg;
+	while(d)
+	{
+		logPrintf("checking %p %s for %s\n", d, d->arg_name, i->arg_name);
+		if(arg_spec_contains(d, i))
+		{
+			logPrintf("okay\n");
+			insert_arg_spec(hfstruct->arg, d, j);
+			return;
+		}
+		d = d->next_spec;
+	}
+	return;
+}
+
+int arg_spec_contains(struct arg_spec * c, struct arg_spec * i)
+{
+	int ret;
+	if(c == i)
+		return 1;
+	c = c->deref;
+	while(c)
+	{
+		if(c == i)
+			return 1;
+		else if(c->deref)
+		{
+			ret = arg_spec_contains(c->deref, i);
+			if(ret)
+				return 1;
+		}
+		c = c->next_spec;
+	}
+	return 0;
 }
 
 int loadxmlhookfile(void)
@@ -818,8 +879,9 @@ int parse(char * data, unsigned int size)
 							logPrintf("XML parse error: element with no containing arg proto ?!?\n");
 							return -1;
 						}
-						current_arg_spec = get_prev_arg_spec_deref(argument_arg_spec, current_arg_spec);
-						containing_arg_spec = get_prev_arg_spec_deref(argument_arg_spec, current_arg_spec);
+						current_arg_spec = get_container_by_deref(NULL, argument_arg_spec, current_arg_spec);
+						containing_arg_spec = get_container_by_deref(NULL, argument_arg_spec, current_arg_spec);
+						/* FIXME FIXME FIXME ... with the new get_container this could be an issue... */
 						//if(argument_arg_spec == current_arg_spec)
 						//	is_an_element = false;			//shouldn't be necessary here... since we're still in an arg/return
 					}
@@ -1147,6 +1209,7 @@ parse_handletype:
 						return -1;
 					}
 					t = add_type(typenamestr, typevalue, 0, is_an_element);
+					t->size_name = NULL;
 					t->scope = add_scope();
 					enter_scope(t->scope);
 					CURRENT_SCOPE->defines = scope::type;
@@ -1388,13 +1451,19 @@ parse_handlearg:
 						}
 						current_arg_spec->next_spec = NULL;
 						current_arg_spec->deref = NULL;
-						if(!argtype)
+						
+						if(argname || !argtype)
 						{
 							t = lookup_type(argname, CURRENT_SCOPE_ONLY);
 							if(!t)
 							{
-								logPrintf("XML parse error: unspecified type %s arg not in structure\n", argname);
-								return -1;
+								if(argtype)
+									t = lookup_type(argtype);
+								if(!t)
+								{
+									logPrintf("XML parse error: unspecified type %s arg not in structure\n", argname);
+									return -1;
+								}
 							}
 						}
 						else
@@ -1404,6 +1473,7 @@ parse_handlearg:
 							logPrintf("XML parse error: type %s arg not found\n", argtype);
 							return -1;
 						}
+						logPrintf("offset this %d\n", t->offset);
 						if(t->basetype == ARG_TYPE_STRUCT)
 						{
 							logPrintf("XML parse error: raw, empty structure specified as argument\n");
@@ -1439,7 +1509,7 @@ parse_handlearg:
 							argument_arg_spec->type |= ARGSPECOFPRECALLINTEREST;
 						if(argument_arg_spec != current_arg_spec && (a & ARGSPECOFPOSTCALLINTEREST))
 							argument_arg_spec->type |= ARGSPECOFPOSTCALLINTEREST;
-						logPrintf("arg %s %04x\n", argname, a);
+						
 						if(t->basetype > 20)
 							logPrintf("XML parse error: high base type %d\n", t->basetype);
 						
@@ -1474,10 +1544,13 @@ parse_handlearg:
 								t = t->basetype_ref;
 							}
 							if(t->basetype_ref)
+							{
 								a |= t->basetype_ref->basetype;
+								a |= ARGSPECPOINTER;
+							}
 							else
 								a |= ARG_TYPE_PTR;
-							a |= ARGSPECPOINTER;
+							
 						}
 						else
 							a |= t->basetype;
@@ -1514,11 +1587,13 @@ parse_handlearg:
 						}
 						else
 							current_arg_spec->deref_len = NULL;
-
+						if(!current_arg_spec->deref_len && (a & ARGSPECPOINTER))
+							logPrintf("XML parse error: element designated sized pointer without size!!!\n");
 						
 						argsize = NULL;
 						argsize_size = 0;
 						current_arg_spec->type = a;			//i.e., the eventual dereferenced type... 
+						logPrintf("arg %s %04x\n", current_arg_spec->arg_name, a);
 						logPrintf("\toffset %d %d.%d\n", argument_arg_spec->offset, (containing_arg_spec ? containing_arg_spec->offset : -1), current_arg_spec->offset);
 					}
 					
@@ -1653,10 +1728,13 @@ parse_handlearg:
 									t = t->basetype_ref;
 								}
 								if(t->basetype_ref)
+								{
 									a |= t->basetype_ref->basetype;
+									a |= ARGSPECPOINTER;
+								}
 								else
 									a |= ARG_TYPE_PTR;
-								a |= ARGSPECPOINTER;
+								
 							}
 							else
 								a |= t->basetype;
@@ -1708,6 +1786,8 @@ parse_handlearg:
 						}
 						else
 							current_arg_spec->deref_len = NULL;
+						if(!current_arg_spec->deref_len && (a & ARGSPECPOINTER))
+							logPrintf("XML parse error: element designated sized pointer without size!!!\n");
 						argsize = NULL;
 						argsize_size = 0;
 						current_arg_spec->type = ARG_TYPE_PTR;			//FIXME FIXME this is tossed... 

@@ -53,7 +53,7 @@ void cleanup_hook(struct hooked_func * hfstruct);
 #ifdef _WIN64
 #define OUR_SP_ADDITIONS			(4 * 8)
 #else
-#define OUR_SP_ADDITIONS			(4 * 4)
+#define OUR_SP_ADDITIONS			(5 * 4)
 #endif //_WIN64
 
 void hookfuncfunc(void * sp, unsigned long functiondispatch)
@@ -184,12 +184,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 		{
 		// we don't want to print if there's a deref... why would we... 
 			logPrintf("...p %p no deref offset %d %04x\n", offset_p, arg->offset, arg->type);
-		try
+		__try
 		{
 
 	if(arg->type & ARGSPECARRAY)
 		logPrintf("WARNING: dispatch array argument unhandled!\n");
 	
+	if((arg->type & ARGSPECLENRELATED) && arg->arg_name)
+		logPrintf("%s:\n", arg->arg_name);
 	//final data
 	switch(arg->type & ARGSPECTYPEMASK)
 	{
@@ -203,16 +205,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					arg->val_val = (value_t)*(char *)offset_p;
 			}
+			else if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					/* FIXME we should have it just not put 0s on the stack or put an error if the stack is empty FIXME */
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
-				logPrintf("CHAR[]: ");
+				logPrintf("INT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(char **)offset_p)[i]);
 				logPrintf("%d\n", (*(char **)offset_p)[i]);
@@ -228,15 +235,20 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					arg->val_val = (value_t)*(unsigned char *)offset_p;
 			}
+			else if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
-				logPrintf("UCHAR[]: ");
+				logPrintf("UINT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned char **)offset_p)[i]);
 				logPrintf("%u\n", (*(unsigned char **)offset_p)[i]);
@@ -252,9 +264,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					arg->val_val = (value_t)*(short *)offset_p;
 			}
+			else if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -276,9 +293,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					arg->val_val = (value_t)*(unsigned short *)offset_p;
 			}
+			else if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -300,9 +322,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					arg->val_val = (value_t)*(long *)offset_p;
 			}
+			else if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -324,9 +351,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					arg->val_val = (value_t)*(unsigned long *)offset_p;
 			}
+			else if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -350,9 +382,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					arg->val_val = (value_t)*(unsigned long long *)offset_p;
 			}
+			else if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -371,9 +408,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 			if(arg->type & ARGSPECLENRELATED)
 				logPrintf("WARNING: length related pointer to pointer ?!?\n");
 #ifdef _WIN64
-			if(arg->type & ARGSPECPOINTER)
+			if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
+			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -394,9 +436,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("PTR: %08x%08x\n", PRINTARG64(temp));
 			}
 #else
-			if(arg->type & ARGSPECPOINTER)
+			if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
+			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -412,9 +459,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 #endif //_WIN64
 			break;
 		case ARG_TYPE_CHAR:
-			if(arg->type & ARGSPECPOINTER)
+			if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
+			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
@@ -426,9 +478,15 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("CHAR %c", *(char *)offset_p);
 			break;
 		case ARG_TYPE_UCHAR:
-			if(arg->type & ARGSPECPOINTER)
+			if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
+			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
+				logPrintf("dispatch length %d %p %p\n", dispatch_length, offset_p, (offset_p ? (*(unsigned char **)offset_p) : (unsigned char *)-1));
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
@@ -440,9 +498,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("UCHAR %c", *(unsigned char *)offset_p);
 			break;
 		case ARG_TYPE_BOOL:
-			if(arg->type & ARGSPECPOINTER)
+			if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n"); 
+			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len > (struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
@@ -457,9 +520,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("BOOL %s\n", (*(bool *)offset_p ? "true" : "false"));
 			break;
 		case ARG_TYPE_WCHAR:
-			if(arg->type & ARGSPECPOINTER)
+			if(arg->type & ARGSPECPOINTER && !(*(char **)offset_p))
+				logPrintf("NULL\n");
+			else if(arg->type & ARGSPECPOINTER)
 			{
-				dispatch_length = arg->deref_len->val_val;
+				if(arg->deref_len >(struct arg_spec *)0x10000)
+					dispatch_length = arg->deref_len->val_val;
+				else
+					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length)
 				{
 					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
@@ -483,12 +551,18 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 		case ARG_TYPE_IP6:
 			logPrintf("IP6?!?!: %08x\n", *(unsigned long *)offset_p);
 			break;
+		case ARG_TYPE_STRUCT:
+			/* FIXME This is silly, we shouldn't have dereferenced the pointers if we
+			 * aren't really accessing elements of the structures, but it's an xml loader
+			 * problem, i.e., when we dereference pointers passed as leaf elements */
+			logPrintf("struct *: %p\n", offset_p);
+			break;
 		default:
 			logPrintf("WARNING: arg dispatch unhandled type\n");
 			break;
 	}
 	}
-	catch(...)
+	__except(EXCEPTION_ACCESS_VIOLATION)
 	{
 		logPrintf("EXCEPTION\n");
 	}

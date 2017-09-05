@@ -36,6 +36,7 @@ Hook PROC
 	push esi
 	push edi
 	push ebx
+	push ecx
 	mov eax,esp		
 	push 66555467h			;can't use a variable
 	push eax
@@ -57,31 +58,34 @@ LockHook ENDP
 
 ;void call_orig_func_as_if(void * sp, void(*origfunc)(void), int ret);
 call_orig_func_as_if PROC
-	mov ecx,[esp+08h]
+	mov eax,[esp+08h]
 	mov dl,1
 	cmp byte ptr [esp+0ch],dl
 	je @@rettohandler
 	mov esp,[esp+4h]
+	pop ecx
 	pop ebx
 	pop edi
 	pop esi
 	pop ebp
-	jmp ecx;
+	jmp eax;
 @@rettohandler:
 	mov edx,[esp]
 	mov saveretvalue,edx
 	mov edx,[esp+4h]
 	mov esp,edx
+	pop ecx
 	pop ebx
 	pop edi
 	pop esi
 	pop ebp
 	add esp,4h
-	call ecx
+	call eax
 	push ebp
 	push esi
 	push edi
 	push ebx
+	push ecx
 	push eax		; the return value
 	mov eax,esp		; return stack with return value
 	sub esp,30h		; for good luck!
@@ -90,14 +94,15 @@ call_orig_func_as_if ENDP
 
 ;void cleanup_hooking(void * sp, void * origret);
 cleanup_hooking PROC
-	mov ecx,[esp+08h]
+	mov edx,[esp+08h]
 	mov esp,[esp+4h]
 	pop eax				; restore real return value
+	pop ecx
 	pop ebx
 	pop edi
 	pop esi
 	pop ebp
-	jmp ecx
+	jmp edx
 cleanup_hooking ENDP
 
 hijackcaller PROC
