@@ -68,6 +68,12 @@
     <ClCompile Include="argspecutil.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="specialhooks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="justforvs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="x64_hook.asm">

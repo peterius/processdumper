@@ -15,6 +15,7 @@
 #pragma once
 #include <Windows.h>
 #include <TlHelp32.h>
+#include <Psapi.h>
 #include <stdio.h>
 
 typedef FILE * (* fopenPtr)( const char *filename, const char *mode);
@@ -61,6 +62,8 @@ typedef int (__stdcall * WideCharToMultiBytePtr)(UINT CodePage, DWORD dwFlags, L
 typedef VOID (WINAPI * ExitThreadPtr)(DWORD dwExitCode);
 typedef int (__stdcall * GetTimeFormatExPtr)(LPCWSTR lpLocaleName, DWORD dwFlags, const SYSTEMTIME *lpTime, LPCWSTR lpFormat, LPWSTR lpTimeStr, int cchTime);
 typedef int (__stdcall * GetDateFormatExPtr)(LPCWSTR lpLocaleName, DWORD dwFlags, const SYSTEMTIME *lpDate, LPCWSTR lpFormat, LPWSTR lpDateStr, int cchDate, LPCWSTR lpCalendar);
+typedef BOOL (WINAPI * GetModuleInformationPtr)(HANDLE hProcess, HMODULE hModule, LPMODULEINFO lpmodinfo, DWORD cb);
+
 
 extern fopenPtr _fopen;
 extern fclosePtr _fclose;
@@ -104,6 +107,7 @@ extern WideCharToMultiBytePtr WideCharToMultiByte_0;
 extern ExitThreadPtr ExitThread_0;
 extern GetTimeFormatExPtr GetTimeFormatEx_0;
 extern GetDateFormatExPtr GetDateFormatEx_0;
+extern GetModuleInformationPtr GetModuleInformation_0;
 
 void * memset_0(void *dest, int c, size_t count);
 void * memcpy_0(void *dest, const void *src, size_t count);

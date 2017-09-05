@@ -45,7 +45,6 @@ void * curhook_stackandretval;
 
 void assign_arg_ref(void * p, argtypep arg);
 void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre_post);
-int hook_import_table(char * baseaddr, unsigned int size, bool unhook=false);
 struct hooked_func * shouldwehook(char * libname, unsigned short ordinal, char * funcname);
 int generate_hook(struct hooked_func * proto_hfstruct);
 void cleanup_hook(struct hooked_func * hfstruct);
@@ -90,6 +89,9 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 		arg_spec = arg_spec->next_spec;
 	}
 
+	if(curhook_hfstruct->prehook)
+		curhook_hfstruct->prehook(curhook_hfstruct->arg);
+
 	/* We want the stack as the function has consumed it, but we'll push the return on there too */
 #ifdef _WIN64
 	logPrintf("orig func %08x%08x\n", PRINTARG64(curhook_hfstruct->origfunc));
@@ -105,19 +107,20 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	{
 		logPrintf("\t");
 		logPrintf("arg_spec type %04x %p\n\t", arg_spec->type, arg_spec->deref);
-#ifdef _WIN64
+
 		if(arg_spec->type & ARGSPECRETURN_VALUE)
+		{
 			dispatch_arg((char *)curhook_stackandretval, arg_spec, NULL, ARGSPECOFPOSTCALLINTEREST);
+			assign_arg_ref((char *)curhook_stackandretval, arg_spec);
+		}
 		else
 			dispatch_arg(NULL, arg_spec, NULL, ARGSPECOFPOSTCALLINTEREST);
-#else
-		if(arg_spec->type & ARGSPECRETURN_VALUE)
-			dispatch_arg((char *)curhook_stackandretval, arg_spec, NULL, ARGSPECOFPOSTCALLINTEREST);
-		else
-			dispatch_arg(NULL, arg_spec, NULL, ARGSPECOFPOSTCALLINTEREST);
-#endif //_WIN64
+
 		arg_spec = arg_spec->next_spec;
 	}
+
+	if(curhook_hfstruct->posthook)
+		curhook_hfstruct->posthook(curhook_hfstruct->arg);
 
 	LeaveCriticalSection_0(&critsection);
 	cleanup_hooking(curhook_stackandretval, curhook_origret);
@@ -899,6 +902,8 @@ int allocate_hook_space(void)
 	hookfuncsize = (char *)&EndHook - (char *)&Hook;
 	totalhooksize = sizeof(struct hooked_func) + (unsigned int)hookfuncsize;
 	hooked_funcs = 0;
+
+	setup_special_hooks();
 
 	if(loadxmlhookfile() < 0)
 		return XMLLOAD_FAILED;

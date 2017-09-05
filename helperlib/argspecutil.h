@@ -33,7 +33,7 @@ typedef struct arg_spec
 	struct arg_spec * deref;			//could use union, but how do we make sure about the mask...
 	value_t index;
 	value_t size;
-	value_t val_val;
+	value_t val_val;					//why oh why did I name it this
 	struct arg_spec * deref_len;
 	struct arg_spec * next_spec;
 } *argtypep;

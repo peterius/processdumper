@@ -13,6 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 #pragma once
+#include "specialhooks.h"
 
 //base types
 
@@ -53,4 +54,6 @@ struct hooked_func
 	char * hook;
 	unsigned long our_number;
 	struct arg_spec * arg;
+	specialhookfuncptr prehook;
+	specialhookfuncptr posthook;
 };

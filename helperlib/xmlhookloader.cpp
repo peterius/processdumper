@@ -727,6 +727,8 @@ int parse(char * data, unsigned int size)
 	int depth = 0;
 	char * inlibname;
 	char * functionname;
+	char * prehookname;
+	char * posthookname;
 	char * valuename;
 	char * valuevalue;
 	char * typevalue;
@@ -762,6 +764,8 @@ int parse(char * data, unsigned int size)
 
 	inlibname = NULL;
 	functionname = NULL;
+	prehookname = NULL;
+	posthookname = NULL;
 	valuename = NULL;
 	valuevalue = NULL;
 	typevalue = NULL;
@@ -996,6 +1000,20 @@ int parse(char * data, unsigned int size)
 							whitespace(&d);
 							stacktrace = get_quoted_boolean(&d);
 						}
+						else if(strnicmp_0(d, "prehook", 7) == 0)
+						{
+							i = countto(d, '=');
+							d += i + 1;
+							whitespace(&d);
+							prehookname = get_quoted_value(&d);
+						}
+						else if(strnicmp_0(d, "posthook", 8) == 0)
+						{
+							i = countto(d, '=');
+							d += i + 1;
+							whitespace(&d);
+							posthookname = get_quoted_value(&d);
+						}
 						else
 						{
 							logPrintf("XML parse error: bad function attribute\n");
@@ -1033,6 +1051,12 @@ int parse(char * data, unsigned int size)
 						hfstruct->origlibname = libn;
 						hfstruct->origname = functionname;
 						hfstruct->origordinal = ordinal;
+						hfstruct->prehook = lookup_special_hook(prehookname);
+						free_0(prehookname);
+						prehookname = NULL;
+						hfstruct->posthook = lookup_special_hook(posthookname);
+						free_0(posthookname);
+						posthookname = NULL;
 						hfstruct->arg = NULL;
 						argument_arg_spec = NULL;
 

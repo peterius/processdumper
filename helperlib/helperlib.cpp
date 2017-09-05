@@ -18,7 +18,6 @@
 #include "functionprototypes.h"
 #include "logging.h"
 #include "hook.h"
-#include "justforvs.h"
 #include "errors.h"
 
 int status = 0;
@@ -311,6 +310,9 @@ int fix_imports(void)
 	ExitThread_0 = (ExitThreadPtr)OurGetProcAddress(k32lib, "ExitThread");
 	GetTimeFormatEx_0 = (GetTimeFormatExPtr)OurGetProcAddress(k32lib, "GetTimeFormatEx");
 	GetDateFormatEx_0 = (GetDateFormatExPtr)OurGetProcAddress(k32lib, "GetDateFormatEx");
+	GetModuleInformation_0 = (GetModuleInformationPtr)OurGetProcAddress(k32lib, "GetModuleInformation");
+	if(!GetModuleInformation_0)
+		GetModuleInformation_0 = (GetModuleInformationPtr)OurGetProcAddress(OurLoadLibrary(L"psapi.dll"), "GetModuleInformation");
 
 	stdlib = OurLoadLibrary(L"msvcrt.dll");
 	if(!stdlib)
