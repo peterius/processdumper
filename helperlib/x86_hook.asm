@@ -22,6 +22,7 @@ PUBLIC cleanup_hooking
 PUBLIC hijackcaller
 
 EXTERN hookfuncfunc: PROC
+EXTERN LeaveCriticalSection_0: PROC
 
 _DATA SEGMENT
 	saveretvalue dd 0
@@ -92,8 +93,13 @@ call_orig_func_as_if PROC
 	jmp saveretvalue
 call_orig_func_as_if ENDP
 
-;void cleanup_hooking(void * sp, void * origret);
+;void cleanup_hooking(void * sp, void * origret, &critsect);
 cleanup_hooking PROC
+	mov edx,[esp+0ch]
+	push edx
+	mov eax,LeaveCriticalSection_0
+	mov eax,[eax]
+	call eax
 	mov edx,[esp+08h]
 	mov esp,[esp+4h]
 	pop eax				; restore real return value

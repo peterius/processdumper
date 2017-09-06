@@ -573,7 +573,7 @@ struct arg_spec * find_deref_len(struct arg_spec * j, char * deref_len_name)
 	{
 		// if this is a pointer to the size... there will be a deref but I guess that's okay... 
 		if((j->arg_name && strcmp_0(j->arg_name, deref_len_name) == 0) ||
-			(!j->arg_name && strcmp_0(deref_len_name, "return") == 0 && (j->type & ARGSPECRETURN_VALUE)))
+			(strcmp_0(deref_len_name, "return") == 0 && (j->type & ARGSPECRETURN_VALUE)))	//j->arg_name here is actually "return value" FIXME
 		{
 			return j;
 		}

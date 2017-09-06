@@ -63,7 +63,6 @@ sendPtr _send;
 InitializeCriticalSectionPtr InitializeCriticalSection_0;
 DeleteCriticalSectionPtr DeleteCriticalSection_0;
 EnterCriticalSectionPtr EnterCriticalSection_0;
-LeaveCriticalSectionPtr LeaveCriticalSection_0;
 VirtualAllocPtr VirtualAlloc_0;
 VirtualFreePtr VirtualFree_0;
 GetCurrentProcessPtr GetCurrentProcess_0;
@@ -171,6 +170,8 @@ DWORD WINAPI DLLIPCThread(LPVOID param)
 
 DWORD WINAPI UnloadHelperLib(LPVOID param)
 {
+	bool hijack = ((DWORD)param & 0x80000000);
+
 	logPrintf("Cleaning up hooks...\n");
 	cleanup_hook_space();
 	DeleteCriticalSection_0(&critsection);
@@ -178,6 +179,8 @@ DWORD WINAPI UnloadHelperLib(LPVOID param)
 	logPrintf("Closing log...\n");
 	close_logging_file();
 
+	if(hijack)
+		return 0;
 	ExitThread_0(0);
 	return 0;
 }

@@ -30,6 +30,7 @@ unsigned long dispatch_magic = 0x66555467;
 strcmpPtr strcmp_0;
 stricmpPtr stricmp_0;
 VirtualProtectPtr VirtualProtect_0;
+LeaveCriticalSectionPtr LeaveCriticalSection_0;
 
 char * hookspace = NULL;
 unsigned int hookspace_size;
@@ -61,6 +62,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	struct arg_spec * arg_spec;
 
 	EnterCriticalSection_0(&critsection);
+	
 	curhook_stackpointer = sp;
 	curhook_origret = *(void **)((char *)curhook_stackpointer + OUR_SP_ADDITIONS);
 
@@ -122,8 +124,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	if(curhook_hfstruct->posthook)
 		curhook_hfstruct->posthook(curhook_hfstruct->arg);
 
-	LeaveCriticalSection_0(&critsection);
-	cleanup_hooking(curhook_stackandretval, curhook_origret);
+	cleanup_hooking(curhook_stackandretval, curhook_origret, &critsection);
 	//never gets here
 }
 
@@ -195,6 +196,7 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 	
 	if((arg->type & ARGSPECLENRELATED) && arg->arg_name)
 		logPrintf("%s:\n", arg->arg_name);
+
 	//final data
 	switch(arg->type & ARGSPECTYPEMASK)
 	{
@@ -222,6 +224,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("INT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(char **)offset_p)[i]);
@@ -251,6 +255,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("UINT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned char **)offset_p)[i]);
@@ -280,6 +286,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("SHORT[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(short **)offset_p)[i]);
@@ -309,6 +317,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("USHORT[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned short **)offset_p)[i]);
@@ -338,6 +348,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("LONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(long **)offset_p)[i]);
@@ -367,6 +379,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("ULONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned long **)offset_p)[i]);
@@ -398,6 +412,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("ULONGLONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned long long **)offset_p)[i]);
@@ -424,6 +440,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("PTR[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 				{
@@ -452,6 +470,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("PTR[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%08x, ", (*(unsigned long **)offset_p)[i]);
@@ -475,6 +495,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logData(*(unsigned char **)offset_p, dispatch_length);			//but it's a char not an unsigned char ?!?! FIXME
 			}
 			else
@@ -495,6 +517,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logData(*(unsigned char **)offset_p, dispatch_length);
 			}
 			else
@@ -514,6 +538,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logPrintf("BOOL[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%s, ", ((*(bool **)offset_p)[i] ? "true" : "false"));
@@ -536,6 +562,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
 					dispatch_length = 8;
 				}
+				else if((svalue_t)dispatch_length < 0)
+					break;
 				logwData(*(unsigned char **)offset_p, dispatch_length * 2);			//make sure size is always per arg->type size... 
 			}
 			else
@@ -795,8 +823,6 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 #endif //IMPORTTABLE_DEBUG
 			if(hfstruct)
 			{
-//#ifdef _WIN64
-//#else
 				if(!memory_protection)
 				{
 					if(!VirtualProtect_0(import_address_section_hdr->VirtualAddress + baseaddr, import_address_section_hdr->SizeOfRawData, PAGE_EXECUTE_READWRITE, &memory_protection))
@@ -825,16 +851,14 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 					origfunc = LockHook((char *)addresstable, hfstruct->hook);
 				if(!unhook && hfstruct->origfunc && origfunc != (char *)hfstruct->origfunc)
 #ifdef _WIN64
-					logPrintf("WARNING: Overwriting hook %08x%08x for %s with %08x%08x\n", PRINTARG64(hfstruct->origfunc), hfstruct->origname, PRINTARG64(origfunc));
+					logPrintf("WARNING: Overwriting hook backup %08x%08x for %s with %08x%08x\n", PRINTARG64(hfstruct->origfunc), hfstruct->origname, PRINTARG64(origfunc));
 #else
-					logPrintf("WARNING: Overwriting hook %08x for %s with %08x\n", (char *)hfstruct->origfunc, hfstruct->origname, (char *)origfunc);
+					logPrintf("WARNING: Overwriting hook backup %08x for %s with %08x\n", (char *)hfstruct->origfunc, hfstruct->origname, (char *)origfunc);
 #endif //_WIN64
 				if(unhook)
 				{}			// multiple libraries could be hooked with this same hook, so keep the origfunc available
 				else
 					hfstruct->origfunc = (void(*)(void))origfunc;
-
-//#endif //_WIN64
 			}
 			
 			k++;
@@ -855,17 +879,213 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 	return 0;
 }
 
+int hook_export_table(char * baseaddr, unsigned int size, bool unhook)
+{
+	IMAGE_DOS_HEADER * dosheader;
+	IMAGE_EXPORT_DIRECTORY * exportdir;
+	unsigned int i, j, tablesize, k;
+	char * libname;
+	char * symbolname;
+#ifdef _WIN64
+	ULONGLONG * nametable, *addresstable;
+#else
+	DWORD * nametable, *addresstable;
+#endif //_WIN64
+	struct hooked_func * hfstruct;
+	IMAGE_SECTION_HEADER * export_address_section_hdr;
+	DWORD memory_protection = NULL;
+	char * origfunc;
+	DWORD * functionoffsets;
+	unsigned short * ordinaltable;
+	DWORD * nameptr;
+	char ** funcaddress;
+
+#ifdef _WIN64
+	IMAGE_NT_HEADERS64 * peheader;
+#else
+	IMAGE_NT_HEADERS32 * peheader;
+#endif //_WIN64
+
+	dosheader = (IMAGE_DOS_HEADER *)baseaddr;
+#ifdef _WIN64
+	peheader = (IMAGE_NT_HEADERS64 *)(baseaddr + dosheader->e_lfanew);
+#else
+	peheader = (IMAGE_NT_HEADERS32 *)(baseaddr + dosheader->e_lfanew);
+#endif //_WIN64
+
+	if(peheader->Signature != 0x00004550)
+	{
+		logPrintf("WARNING: bad PE signature!\n");
+		return -1;
+	}
+#ifdef _WIN64
+	origfunc = (char *)66;
+	if(peheader->FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64)
+	{
+		logPrintf("WARNING: bad PE Machine type!\n");
+		return -1;
+	}
+#else
+	if(peheader->FileHeader.Machine != IMAGE_FILE_MACHINE_I386)
+	{
+		logPrintf("WARNING: bad PE Machine type!\n");
+		return -1;
+	}
+#endif //_WIN64
+
+	if(!peheader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size)
+	{
+#ifdef LOGLIBRARYIMPORTS
+		logPrintf("No exports\n");
+#endif //LOGLIBRARYIMPORTS	
+		return 0;
+	}
+
+	exportdir = (IMAGE_EXPORT_DIRECTORY *)(baseaddr + peheader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
+	if(!exportdir)
+	{
+#ifdef LOGLIBRARYIMPORTS
+		logPrintf("No export table\n");
+#endif //LOGLIBRARYIMPORTS
+		return 0;
+	}
+
+	functionoffsets = (DWORD *)(baseaddr + (DWORD)exportdir->AddressOfFunctions);
+	ordinaltable = (unsigned short *)(baseaddr + (DWORD)exportdir->AddressOfNameOrdinals);
+	nameptr = (DWORD *)(baseaddr + (DWORD)exportdir->AddressOfNames);
+	libname = baseaddr + exportdir->Name;
+	logPrintf("%08x %08x %08x\n", functionoffsets, ordinaltable, nameptr);
+
+#ifdef _WIN64
+	export_address_section_hdr = (IMAGE_SECTION_HEADER *)(peheader->FileHeader.SizeOfOptionalHeader + (char *)peheader + FIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader));
+#else
+	export_address_section_hdr = (IMAGE_SECTION_HEADER *)(peheader->FileHeader.SizeOfOptionalHeader + (char *)peheader + FIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader));	//0x18
+#endif //_WIN64	
+	for(i = 0; i < peheader->FileHeader.NumberOfSections; i++)
+	{
+		//FIXME 64
+#ifdef _WIN64
+		if((char *)functionoffsets >= (char *)export_address_section_hdr->VirtualAddress + (ULONGLONG)baseaddr && (char *)functionoffsets < (char *)export_address_section_hdr->VirtualAddress + (ULONGLONG)baseaddr + export_address_section_hdr->SizeOfRawData)
+#else
+		if((char *)functionoffsets >= (char *)export_address_section_hdr->VirtualAddress + (DWORD)baseaddr && (char *)functionoffsets < (char *)export_address_section_hdr->VirtualAddress + (DWORD)baseaddr + export_address_section_hdr->SizeOfRawData)
+#endif //_WIN64
+			break;
+		export_address_section_hdr++;
+	}
+	if(i == peheader->FileHeader.NumberOfSections)
+	{
+		logPrintf("ERROR: Couldn't find export address table section header\n");
+		return -1;
+	}
+
+	logPrintf("Exports:\n");
+	for(i = 0; i < exportdir->NumberOfNames; i++)
+	{
+		if(functionoffsets[ordinaltable[i]])
+		{
+			funcaddress = (char **)(baseaddr + (DWORD)functionoffsets[ordinaltable[i]]);
+			/* FIXME FIXME FIXME sigh... I should have thought of this... these are all offsets in the export... especially with 64 bit
+			 * I can't make them point to a completely different module... obviously, this is stupidity
+			 * but anyway, I would have to write actual function hook hooks and put them on the procedures, which would be a big mess
+			 * the other thing is a GetProcAddress hook which is much cleaner FIXME FIXME FIXME */
+//#ifdef LOGLIBRARYIMPORTS
+			logPrintf("%08x %08x %s\n", funcaddress, ordinaltable[i], (char *)(baseaddr + (DWORD)nameptr[i]));
+//#endif //LOGLIBRARYIMPORTS
+
+			hfstruct = shouldwehook(libname, ordinaltable[i], (char *)(baseaddr + (DWORD)nameptr[i]));
+
+			if(hfstruct)
+			{
+				logPrintf("hooking\n");
+				__debugbreak();
+				if(!memory_protection)
+				{
+					if(!VirtualProtect_0(export_address_section_hdr->VirtualAddress + baseaddr, export_address_section_hdr->SizeOfRawData, PAGE_EXECUTE_READWRITE, &memory_protection))
+					{
+						logPrintf("ERROR: VirtualProtect failed, unable to set memory protection %d\n", GetLastError_0());
+						return -1;
+					}
+				}
+				if(unhook)
+				{
+					if(!hfstruct->origfunc)
+						logPrintf("ERROR: no original function for unhooking\n");
+					else if(*(char **)funcaddress == (char *)hfstruct->origfunc)
+					{
+					}
+					else
+					{
+						origfunc = LockHook((char *)funcaddress, (char *)hfstruct->origfunc);
+						if(origfunc != hfstruct->hook)
+							logPrintf("WARNING: something else hooked this function %p ?!?\n", origfunc);
+					}
+				}
+				else
+					origfunc = LockHook((char *)funcaddress, hfstruct->hook);
+				if(!unhook && hfstruct->origfunc && origfunc != (char *)hfstruct->origfunc)
+#ifdef _WIN64
+					logPrintf("WARNING: Overwriting hook backup %08x%08x for %s with %08x%08x\n", PRINTARG64(hfstruct->origfunc), hfstruct->origname, PRINTARG64(origfunc));
+#else
+					logPrintf("WARNING: Overwriting hook backup %08x for %s with %08x\n", (char *)hfstruct->origfunc, hfstruct->origname, (char *)origfunc);
+#endif //_WIN64
+				if(unhook)
+				{
+				}			// multiple libraries could be hooked with this same hook, so keep the origfunc available
+				else
+					hfstruct->origfunc = (void(*)(void))origfunc;
+			}
+		}
+	}
+	if(memory_protection)
+	{
+		DWORD temp;
+		if(!VirtualProtect_0(export_address_section_hdr->VirtualAddress + baseaddr, export_address_section_hdr->SizeOfRawData, memory_protection, &temp))
+		{
+			logPrintf("ERROR: VirtualProtect failed, unable to restore memory protection %d\n", GetLastError_0());
+			return -1;
+		}
+	}
+	return 0;
+}
+
 /* I don't know why I'm using both... I guess if I loaded it from a file, but... no
  * there's still the problem of the name allocation... */
 struct hooked_func * shouldwehook(char * libname, unsigned short ordinal, char * funcname)
 {
 	unsigned int i;
 	struct hooked_func * hfstruct;
+	int rightlib = 0;
+	char * c;
+	unsigned int j;
 
 	hfstruct = (struct hooked_func *)hookspace;
 	for(i = 0; i < hooked_funcs; i++)
 	{
-		if((hfstruct->origlibname[0] == '*' && hfstruct->origlibname[1] == 0x00) || stricmp_0(libname, hfstruct->origlibname) == 0)
+		if(hfstruct->origlibname[0] == '*' && hfstruct->origlibname[1] == 0x00)
+			rightlib = 1;
+		else
+		{
+			c = hfstruct->origlibname;
+			while(*c != 0x00)
+			{
+				if(*c == ';')
+					c++;
+				j = 0;
+				while(*(c + j) != ';' && *(c + j) != 0x00)
+					j++;
+				if(*(c + j) == ';')
+				{
+					*(c + j) = 0x00;
+					if(stricmp_0(libname, c) == 0)
+						rightlib = 1;
+					*(c + j) = ';';
+				}
+				else if(stricmp_0(libname, c) == 0)
+					rightlib = 1;
+				c += j;
+			}
+		}
+		if(rightlib)
 		{
 			if(funcname && strcmp_0(funcname, hfstruct->origname) == 0)
 			{
@@ -875,6 +1095,7 @@ struct hooked_func * shouldwehook(char * libname, unsigned short ordinal, char *
 			{
 				return hfstruct;
 			}
+			rightlib = 0;
 		}
 		hfstruct = (struct hooked_func *)(((char *)hfstruct) + totalhooksize);
 	}
@@ -978,5 +1199,4 @@ void cleanup_hook(struct hooked_func * hfstruct)
 	if(hfstruct->origlibname)
 		free_0(hfstruct->origlibname);
 	cleanup_arg_spec(hfstruct->arg);
-	
 }

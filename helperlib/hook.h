@@ -22,9 +22,11 @@ int allocate_hook_space(void);
 void cleanup_hook_space(void);
 int hook_imports(bool unhook=false);
 int hook_import_table(char * baseaddr, unsigned int size, bool unhook = false);
+int hook_export_table(char * baseaddr, unsigned int size, bool unhook = false);
 struct hooked_func * get_hooked_func_struct(void);
 
 extern "C"
 {
 void hookfuncfunc(void * sp, unsigned long functiondispatch);
+extern void (WINAPI * LeaveCriticalSection_0)(LPCRITICAL_SECTION lpCriticalSection);
 }

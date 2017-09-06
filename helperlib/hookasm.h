@@ -6,9 +6,9 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *	but WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
- *	GNU General Public License for more details.
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+ *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
@@ -21,5 +21,5 @@ extern "C"
 	char * LockHook(char * loc, char * hookaddr);
 #define RETURNTOHERE		1
 	void * call_orig_func_as_if(void * sp, void(*origfunc)(void), int ret);
-	void cleanup_hooking(void * sp, void * origret);
+	void cleanup_hooking(void * sp, void * origret, LPCRITICAL_SECTION lpCriticalSection);
 }

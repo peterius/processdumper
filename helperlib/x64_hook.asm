@@ -13,6 +13,7 @@
 ;  You should have received a copy of the GNU General Public License
 ;  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 EXTERN hookfuncfunc: PROC
+EXTERN LeaveCriticalSection_0: PROC
 
 PUBLIC Hook
 PUBLIC EndHook
@@ -95,15 +96,24 @@ call_orig_func_as_if PROC
 	push rbx
 	push rax		; the return value
 	mov rax,rsp		; return stack with return value
-	sub rsp,30h		; for good luck!
+	sub rsp,40h		; for good luck!
 	mov rsi,saversi
 	mov rdi,saverdi
 	jmp saveretvalue
 call_orig_func_as_if ENDP
 
-;void cleanup_hooking(void * sp, void * origret);
+;void cleanup_hooking(void * sp, void * origret, &critsection);
 cleanup_hooking PROC
-	mov rsp,rcx
+	mov [rsp],rcx
+	mov [rsp+8h],rdx
+	mov rcx,r8
+	sub rsp,20h
+	mov rax,LeaveCriticalSection_0
+	mov rax,[rax]
+	call rax
+	add rsp,20h
+	mov rdx,[rsp+8h]
+	mov rsp,[rsp]
 	pop rax
 	pop rbx
 	pop rdi

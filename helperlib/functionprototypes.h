@@ -88,7 +88,7 @@ extern sscanfPtr sscanf_0;
 extern InitializeCriticalSectionPtr InitializeCriticalSection_0;
 extern DeleteCriticalSectionPtr DeleteCriticalSection_0;
 extern EnterCriticalSectionPtr EnterCriticalSection_0;
-extern LeaveCriticalSectionPtr LeaveCriticalSection_0;
+//extern LeaveCriticalSectionPtr LeaveCriticalSection_0;
 extern VirtualAllocPtr VirtualAlloc_0;
 extern VirtualFreePtr VirtualFree_0;
 extern GetCurrentProcessPtr GetCurrentProcess_0;
