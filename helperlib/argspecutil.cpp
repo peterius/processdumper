@@ -23,7 +23,7 @@ void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec *
 {
 	struct arg_spec *b, *c;
 	int found_r = 0;
-	if(q->next_spec == r)
+	if(a == q || q->next_spec == r)
 		return;
 	b = q->next_spec;
 	while(a)
