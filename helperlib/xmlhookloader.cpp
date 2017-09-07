@@ -543,22 +543,46 @@ void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i =
 		i = hfstruct->arg;
 	while(i)
 	{
-		if(i->index == RESOLVE_LEN_NAME && i->deref_len > (argtypep)0x10000)
+		if(i->index == RESOLVE_LEN_NAME)
 		{
-			logPrintf("fflh needs %s... looking for %s\n", i->arg_name, (char *)i->deref_len);
-			if((j = find_deref_len(hfstruct->arg, (char *)i->deref_len)))
+			if(i->deref_len > (argtypep)SIZEORPOINTERLIMIT)
 			{
-				if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
-					logPrintf("XML parse warning: pre/post call flags don't match on length defined buffer %04x for %04x\n", j->type, i->type);
+				logPrintf("fflh needs %s... looking for %s\n", i->arg_name, (char *)i->deref_len);
+				if((j = find_deref_len(hfstruct->arg, (char *)i->deref_len)))
+				{
+					if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
+						logPrintf("XML parse warning: pre/post call flags don't match on length defined buffer %04x for %04x\n", j->type, i->type);
 
-				reorder_for_length(hfstruct, i, j);
+					reorder_for_length(hfstruct, i, j);
 
-				j->type |= ARGSPECLENRELATED;
-				free_0(i->deref_len);				//this is the name string for the reference
-				i->deref_len = j;
-				i->index = LEN_NAME_RESOLVED;
-				logPrintf("assigning %s len %s\n", i->arg_name, j->arg_name);
+					j->type |= ARGSPECLENRELATED;
+					free_0(i->deref_len);				//this is the name string for the reference
+					i->deref_len = j;
+					if(i->deref_fallback_len <= (argtypep)SIZEORPOINTERLIMIT)
+						i->index = LEN_NAME_RESOLVED;
+					logPrintf("assigning %s len %s\n", i->arg_name, j->arg_name);
+				}
 			}
+			if(i->deref_fallback_len > (argtypep)SIZEORPOINTERLIMIT)
+			{
+				logPrintf("fflh needs %s... looking for %s\n", i->arg_name, (char *)i->deref_fallback_len);
+				if((j = find_deref_len(hfstruct->arg, (char *)i->deref_fallback_len)))
+				{
+					if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
+						logPrintf("XML parse warning: pre/post call flags don't match on length defined buffer %04x for %04x\n", j->type, i->type);
+
+					reorder_for_length(hfstruct, i, j);
+
+					j->type |= ARGSPECLENRELATED;
+					free_0(i->deref_fallback_len);				//this is the name string for the reference
+					i->deref_fallback_len = j;
+					i->index = LEN_NAME_RESOLVED;
+					logPrintf("assigning %s fallback len %s\n", i->arg_name, j->arg_name);
+				}
+			}
+			if(i->index != LEN_NAME_RESOLVED)
+				logPrintf("XML parse error: unable to resolve size name!\n");
+				//should really -1 on this... FIXME
 		}
 
 		if(i->deref)		//must check
@@ -752,8 +776,10 @@ int parse(char * data, unsigned int size)
 	char * typenamestr;
 	char * typebasetype;
 	char * argname;
+	char * instance_name;
 	char * argtype;
 	char * argsize;
+	char * fallbacksize;
 	unsigned long functionargument_index;
 #ifdef _WIN64
 #define ARGUMENT_SIZE		8
@@ -764,6 +790,7 @@ int parse(char * data, unsigned int size)
 	int l;
 	unsigned int ordinal;
 	unsigned long argsize_size;
+	unsigned long fallbacksize_size;
 	bool neg;
 	bool is_an_element;
 	bool is_return_value;
@@ -790,13 +817,16 @@ int parse(char * data, unsigned int size)
 	typebasetype = NULL;
 	hfstruct = NULL;
 	argname = NULL;
+	instance_name = NULL;
 	argtype = NULL;
 	argsize = NULL;
+	fallbacksize = NULL;
 	argument_arg_spec = NULL;
 	current_arg_spec = NULL;
 	containing_arg_spec = NULL;
 	val = NULL;
 	argsize_size = 0;
+	fallbacksize_size = 0;
 
 	d = data;
 	end = d + size;
@@ -1388,9 +1418,21 @@ parse_handlearg:
 						xmldebugPrint(d, 20);
 						/* FIXME FIXME FIXME what about this strcmp_0, wstrncmp stuff... 
 						 * also, more lenient parser errors... */
-						if(strcmp_0(argname, "return") == 0)
+						if(strcmp_0(argname, "return") == 0 || strcmp_0(argname, "return value") == 0)
 						{
-							logPrintf("XML parse error: can't use 'return' as an argument name\n");
+							logPrintf("XML parse error: can't use 'return' or 'return value' as an argument name\n");
+							return -1;
+						}
+					}
+					if(strnicmp_0(d, "instance_name", 4) == 0)
+					{
+						i = countto(d, '=');
+						d += i + 1;
+						whitespace(&d);
+						instance_name = get_quoted_value(&d);
+						if(strcmp_0(instance_name, "return") == 0 || strcmp_0(instance_name, "return value") == 0)
+						{
+							logPrintf("XML parse error: can't use 'return' or 'return value' as an argument name\n");
 							return -1;
 						}
 					}
@@ -1410,10 +1452,26 @@ parse_handlearg:
 						if(!argsize)
 						{
 							argsize_size = get_quoted_numeric_value(&d, NULL);
-							if(argsize_size > 0x10000)
+							if(argsize_size > SIZEORPOINTERLIMIT)
 							{
-								logPrintf("XML parse error: constant size greater than 0x10000\n");
-								argsize_size = 0x10000;
+								logPrintf("XML parse error: constant size greater than 0x%x\n", SIZEORPOINTERLIMIT);
+								argsize_size = SIZEORPOINTERLIMIT;
+							}
+						}
+					}
+					else if(strnicmp_0(d, "fallback_size", 4) == 0)
+					{
+						i = countto(d, '=');
+						d += i + 1;
+						whitespace(&d);
+						fallbacksize = get_quoted_value(&d);
+						if(!fallbacksize)
+						{
+							fallbacksize_size = get_quoted_numeric_value(&d, NULL);
+							if(fallbacksize_size > SIZEORPOINTERLIMIT)
+							{
+								logPrintf("XML parse error: constant size greater than 0x%x\n", SIZEORPOINTERLIMIT);
+								fallbacksize_size = SIZEORPOINTERLIMIT;
 							}
 						}
 					}
@@ -1446,6 +1504,14 @@ parse_handlearg:
 						d += i;
 					}
 					whitespace(&d);
+				}
+				if((fallbacksize || fallbacksize_size) && !argsize && !argsize_size)
+				{
+					logPrintf("XML parse error: fallback size with no size\n");
+					argsize = fallbacksize;
+					argsize_size = fallbacksize_size;
+					fallbacksize = NULL;
+					fallbacksize_size = 0;
 				}
 				if(*d == '/')
 				{
@@ -1577,6 +1643,7 @@ parse_handlearg:
 								current_arg_spec->arg_name = NULL;
 								current_arg_spec->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
 								current_arg_spec->deref_len = (argtypep)1;
+								current_arg_spec->deref_fallback_len = NULL;
 								logPrintf("adding deref for pointer: %p %p\n", current_arg_spec, current_arg_spec->deref);
 								current_arg_spec = current_arg_spec->deref;
 								current_arg_spec->deref = NULL;
@@ -1599,7 +1666,14 @@ parse_handlearg:
 						logPrintf("the arg spec %p (%p.%p)\n", argument_arg_spec, containing_arg_spec, current_arg_spec);
 
 						
-						current_arg_spec->arg_name = argname;
+						if(instance_name)
+						{
+							free_0(argname);
+							current_arg_spec->arg_name = instance_name;
+							instance_name = NULL;
+						}
+						else
+							current_arg_spec->arg_name = argname;
 						argname = NULL;
 						current_arg_spec->size = size_of_type(t);
 						
@@ -1630,9 +1704,18 @@ parse_handlearg:
 							current_arg_spec->deref_len = NULL;
 						if(!current_arg_spec->deref_len && (a & ARGSPECPOINTER))
 							logPrintf("XML parse error: element designated sized pointer without size!!!\n");
-						
+						if(fallbacksize)
+						{
+							current_arg_spec->deref_fallback_len = (argtypep)fallbacksize;
+							current_arg_spec->index = RESOLVE_LEN_NAME;
+							fallbacksize = NULL;
+						}
+						else if(fallbacksize_size)
+							current_arg_spec->deref_fallback_len = (argtypep)fallbacksize_size;
 						argsize = NULL;
 						argsize_size = 0;
+						fallbacksize_size = 0;
+
 						current_arg_spec->type = a;			//i.e., the eventual dereferenced type... 
 						logPrintf("arg %s %04x\n", current_arg_spec->arg_name, a);
 						logPrintf("\toffset %d %d.%d\n", argument_arg_spec->offset, (containing_arg_spec ? containing_arg_spec->offset : -1), current_arg_spec->offset);
@@ -1764,6 +1847,7 @@ parse_handlearg:
 									current_arg_spec->size = size_of_type(t->basetype_ref);
 									/* Because there's one pointer if no length is specified */
 									current_arg_spec->deref_len = (argtypep)1;
+									current_arg_spec->deref_fallback_len = NULL;
 									logPrintf("nested assigning pointer with basetype ref %p a size of %d\n", t->basetype_ref, current_arg_spec->size);
 									// FIXME FIXME derefs but what about more sizes ?
 									current_arg_spec = current_arg_spec->deref;
@@ -1833,8 +1917,18 @@ parse_handlearg:
 							current_arg_spec->deref_len = NULL;
 						if(!current_arg_spec->deref_len && (a & ARGSPECPOINTER))
 							logPrintf("XML parse error: element designated sized pointer without size!!!\n");
+						if(fallbacksize)
+						{
+							current_arg_spec->deref_fallback_len = (argtypep)fallbacksize;
+							current_arg_spec->index = RESOLVE_LEN_NAME;
+							fallbacksize = NULL;
+						}
+						else if(fallbacksize_size)
+							current_arg_spec->deref_fallback_len = (argtypep)fallbacksize_size;
+
 						argsize = NULL;
 						argsize_size = 0;
+						fallbacksize_size = 0;
 						current_arg_spec->type = ARG_TYPE_PTR;			//FIXME FIXME this is tossed... 
 						/* It has to be arg_type_ptr because we don't know what will be caught within it, and we need
 						 * a deref regardless... what about structures as offsets without deref except, they'd be

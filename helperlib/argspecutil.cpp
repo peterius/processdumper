@@ -48,30 +48,15 @@ void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec *
 	}
 }
 
-struct arg_spec * copy_arg_spec_chain(struct arg_spec * s)
+void zero_val_vals(struct arg_spec * a)
 {
-	struct arg_spec * r, *ri;
-
-	r = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
-	memcpy_0(r, s, sizeof(struct arg_spec));
-	ri = r;
-	ri->arg_name = NULL;
-	if(ri->deref_len > (argtypep)0x10000)
-		ri->deref_len = NULL;
-	s = s->deref;
-	while(s)
+	while(a)
 	{
-		ri->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
-		memcpy_0(ri->deref, s, sizeof(struct arg_spec));
-		// we do not want copies of these strings... we don't even use them
-		//end deref can set the arg_name on the first arg_spec if it wants... 
-		ri->deref->arg_name = NULL;
-		if(ri->deref->deref_len > (argtypep)0x10000)
-			ri->deref->deref_len = NULL;
-		ri = ri->deref;
-		s = s->deref;
+		if(a->deref)
+			zero_val_vals(a->deref);
+		a->val_val = 0;
+		a = a->next_spec;
 	}
-	return r;
 }
 
 struct arg_spec * deref_end(struct arg_spec * s)

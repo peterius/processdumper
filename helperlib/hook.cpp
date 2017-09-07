@@ -164,6 +164,8 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 		if(arg->deref && !(*(char **)offset_p))
 		{
 			logPrintf("NULL pointer instead of deref\n");
+			/* So that fallbacks can trigger...: */
+			zero_val_vals(arg->deref);
 		}
 		else if(arg->deref)
 		{
@@ -173,7 +175,7 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 			{
 				/* FIXME maybe we only want to print these index things if we're printing part of
 				 * the struct pre/post call */
-				if(arg->deref_len > (argtypep)0x10000)
+				if(arg->deref_len > (argtypep)SIZEORPOINTERLIMIT)
 				{
 					logPrintf("*[%d]:\n", arg->deref_len->val_val);
 					total = arg->deref_len->val_val;
@@ -225,14 +227,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("INT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -254,14 +263,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("UINT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -283,14 +299,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("SHORT[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -312,14 +335,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("USHORT[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -341,14 +371,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("LONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -370,14 +407,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("ULONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -401,14 +445,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("ULONGLONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -427,14 +478,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("PTR[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -455,14 +513,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("PTR[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -478,14 +543,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logData(*(unsigned char **)offset_p, dispatch_length);			//but it's a char not an unsigned char ?!?! FIXME
 			}
@@ -497,15 +569,22 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				logPrintf("dispatch length %d %p %p\n", dispatch_length, offset_p, (offset_p ? (*(unsigned char **)offset_p) : (unsigned char *)-1));
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logData(*(unsigned char **)offset_p, dispatch_length);
 			}
@@ -517,14 +596,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n"); 
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len > (struct arg_spec *)0x10000)
+				if(arg->deref_len > (struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logPrintf("BOOL[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
@@ -539,14 +625,21 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				logPrintf("NULL\n");
 			else if(arg->type & ARGSPECPOINTER)
 			{
-				if(arg->deref_len >(struct arg_spec *)0x10000)
+				if(arg->deref_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("\t0 length\n");
-					break;
+					if(arg->deref_fallback_len >(struct arg_spec *)SIZEORPOINTERLIMIT)
+						dispatch_length = arg->deref_fallback_len->val_val;
+					else
+						dispatch_length = (value_t)arg->deref_fallback_len;
+					if(!dispatch_length || (svalue_t)dispatch_length < 0)
+					{
+						logPrintf("\t0 length\n");
+						break;
+					}
 				}
 				logwData(*(unsigned char **)offset_p, dispatch_length * 2);			//make sure size is always per arg->type size... 
 			}

@@ -35,6 +35,7 @@ typedef struct arg_spec
 	value_t size;
 	value_t val_val;					//why oh why did I name it this
 	struct arg_spec * deref_len;
+	struct arg_spec * deref_fallback_len;
 	struct arg_spec * next_spec;
 } *argtypep;
 
@@ -47,8 +48,10 @@ typedef struct arg_spec
 #define ARGSPECLENRELATED				0x0400			//save the value for something to reference
 #define ARGSPECTYPEMASK					0x03ff
 
+#define SIZEORPOINTERLIMIT		0x10000
+
 void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec * q);
-struct arg_spec * copy_arg_spec_chain(struct arg_spec * s);
+void zero_val_vals(struct arg_spec * a);
 struct arg_spec * deref_end(struct arg_spec * s);
 struct arg_spec * get_container_by_deref(struct arg_spec * cont, struct arg_spec * s, struct arg_spec * e);
 void cleanup_arg_spec(struct arg_spec * arg_spec);
