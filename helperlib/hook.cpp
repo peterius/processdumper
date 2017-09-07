@@ -76,7 +76,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	arg_spec = curhook_hfstruct->arg;
 	while(arg_spec)
 	{
-		logPrintf("arg_spec type %04x %p\n", arg_spec->type, arg_spec->deref);
+		logPrintf("arg_spec %p type %04x %p\n", arg_spec, arg_spec->type, arg_spec->deref);
 #ifdef _WIN64
 			dispatch_arg((char *)curhook_stackpointer + OUR_SP_ADDITIONS + 8, arg_spec, NULL, ARGSPECOFPRECALLINTEREST);
 #else
@@ -108,7 +108,7 @@ void hookfuncfunc(void * sp, unsigned long functiondispatch)
 	while(arg_spec)
 	{
 		logPrintf("\t");
-		logPrintf("arg_spec type %04x %p\n\t", arg_spec->type, arg_spec->deref);
+		logPrintf("arg_spec %p type %04x %p\n", arg_spec, arg_spec->type, arg_spec->deref);
 
 		if(arg_spec->type & ARGSPECRETURN_VALUE)
 		{
@@ -145,6 +145,7 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 	unsigned int i;
 	void * offset_p;
 	value_t dispatch_length;
+	unsigned int total;
 
 #ifdef _WIN64
 	unsigned long long temp;
@@ -160,7 +161,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 		else
 			offset_p = &(arg->arg_value);
 
-		if(arg->deref)
+		if(arg->deref && !(*(char **)offset_p))
+		{
+			logPrintf("NULL pointer instead of deref\n");
+		}
+		else if(arg->deref)
 		{
 			logPrintf("...p %p deref %p offset %d %04x\n", offset_p, arg->deref, arg->offset, arg->type);
 			//p = *(char **)base_p + arg->deref->offset;
@@ -168,8 +173,14 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 			{
 				/* FIXME maybe we only want to print these index things if we're printing part of
 				 * the struct pre/post call */
-				logPrintf("*[%d]:\n", arg->deref_len->val_val);
-				while(arg->index < arg->deref_len->val_val)
+				if(arg->deref_len > (argtypep)0x10000)
+				{
+					logPrintf("*[%d]:\n", arg->deref_len->val_val);
+					total = arg->deref_len->val_val;
+				}
+				else
+					total = (unsigned int)arg->deref_len;
+				while(arg->index < total)
 				{
 					logPrintf("\t.%d:\n", arg->index);
 					//but something has to deref it? fine if this is from container but... 
@@ -194,7 +205,7 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 	if(arg->type & ARGSPECARRAY)
 		logPrintf("WARNING: dispatch array argument unhandled!\n");
 	
-	if((arg->type & ARGSPECLENRELATED) && arg->arg_name)
+	if(!(arg->type & ARGSPECLENRELATED) && arg->arg_name)
 		logPrintf("%s:\n", arg->arg_name);
 
 	//final data
@@ -218,14 +229,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					/* FIXME we should have it just not put 0s on the stack or put an error if the stack is empty FIXME */
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("INT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(char **)offset_p)[i]);
@@ -250,13 +258,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("UINT8[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned char **)offset_p)[i]);
@@ -281,13 +287,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("SHORT[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(short **)offset_p)[i]);
@@ -312,13 +316,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("USHORT[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned short **)offset_p)[i]);
@@ -343,13 +345,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("LONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%d, ", (*(long **)offset_p)[i]);
@@ -374,13 +374,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("ULONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned long **)offset_p)[i]);
@@ -407,13 +405,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("ULONGLONG[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%u, ", (*(unsigned long long **)offset_p)[i]);
@@ -435,13 +431,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("PTR[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 				{
@@ -465,13 +459,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("PTR[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%08x, ", (*(unsigned long **)offset_p)[i]);
@@ -490,13 +482,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logData(*(unsigned char **)offset_p, dispatch_length);			//but it's a char not an unsigned char ?!?! FIXME
 			}
 			else
@@ -512,13 +502,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 				else
 					dispatch_length = (value_t)arg->deref_len;
 				logPrintf("dispatch length %d %p %p\n", dispatch_length, offset_p, (offset_p ? (*(unsigned char **)offset_p) : (unsigned char *)-1));
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logData(*(unsigned char **)offset_p, dispatch_length);
 			}
 			else
@@ -533,13 +521,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch array argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logPrintf("BOOL[]: ");
 				for(i = 0; i < dispatch_length - 1; i++)
 					logPrintf("%s, ", ((*(bool **)offset_p)[i] ? "true" : "false"));
@@ -557,13 +543,11 @@ void dispatch_arg(void * p, argtypep arg, argtypep container, unsigned short pre
 					dispatch_length = arg->deref_len->val_val;
 				else
 					dispatch_length = (value_t)arg->deref_len;
-				if(!dispatch_length)
+				if(!dispatch_length || (svalue_t)dispatch_length < 0)
 				{
-					logPrintf("WARNING: dispatch pointer argument with no preceeding length, trying 8!\n");
-					dispatch_length = 8;
-				}
-				else if((svalue_t)dispatch_length < 0)
+					logPrintf("\t0 length\n");
 					break;
+				}
 				logwData(*(unsigned char **)offset_p, dispatch_length * 2);			//make sure size is always per arg->type size... 
 			}
 			else
@@ -849,6 +833,9 @@ int hook_import_table(char * baseaddr, unsigned int size, bool unhook)
 				}
 				else
 					origfunc = LockHook((char *)addresstable, hfstruct->hook);
+#ifdef IMPORTTABLE_DEBUG
+				logPrintf("hooking %p %p\n", origfunc, hfstruct->hook);
+#endif //IMPORTTABLE_DEBUG
 				if(!unhook && hfstruct->origfunc && origfunc != (char *)hfstruct->origfunc)
 #ifdef _WIN64
 					logPrintf("WARNING: Overwriting hook backup %08x%08x for %s with %08x%08x\n", PRINTARG64(hfstruct->origfunc), hfstruct->origname, PRINTARG64(origfunc));
@@ -1061,10 +1048,13 @@ struct hooked_func * shouldwehook(char * libname, unsigned short ordinal, char *
 	hfstruct = (struct hooked_func *)hookspace;
 	for(i = 0; i < hooked_funcs; i++)
 	{
-		if(hfstruct->origlibname[0] == '*' && hfstruct->origlibname[1] == 0x00)
+		if(funcname && hfstruct->origlibname[0] == '*' && hfstruct->origlibname[1] == 0x00)		//no ordinal only checks
 			rightlib = 1;
 		else
 		{
+			/* FIXME really funcname should be insisted on past the first library
+			 * otherwise we can find noname functions and match with the ordinal
+			 * on the wrong library FIXME FIXME */
 			c = hfstruct->origlibname;
 			while(*c != 0x00)
 			{

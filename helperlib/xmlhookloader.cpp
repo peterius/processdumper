@@ -103,6 +103,7 @@ void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i);
 struct arg_spec * find_deref_len(struct arg_spec * j, char * deref_len_name);
 void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, struct arg_spec * j);
 int arg_spec_contains(struct arg_spec * c, struct arg_spec * i);
+void verify_arg_spec_chain(struct arg_spec * a);
 int parse(char * data, unsigned int size);
 void xmldebugPrint(char * d, int s);
 void whitespace(char ** d);
@@ -650,6 +651,21 @@ int arg_spec_contains(struct arg_spec * c, struct arg_spec * i)
 		c = c->next_spec;
 	}
 	return 0;
+}
+
+void verify_arg_spec_chain(struct arg_spec * a)
+{
+	while(a)
+	{
+		logPrintf("as: %p %s\n", a, a->arg_name); 
+		if(a->deref)
+		{
+			logPrintf("\tderef:\n");
+			verify_arg_spec_chain(a->deref);
+			logPrintf("\tend deref\n");
+		}
+		a = a->next_spec;
+	}
 }
 
 int loadxmlhookfile(void)
@@ -1548,9 +1564,9 @@ parse_handlearg:
 							logPrintf("XML parse error: unknown offset situation...\n");
 
 						// FIXME wait... are char and unsigned char * strings different ?!?! FIXME
-						if(t->basetype == ARG_TYPE_PTR && !argsize && !t->size_name && t->basetype_ref && (t->basetype_ref->basetype == ARG_TYPE_CHAR || t->basetype_ref->basetype == ARG_TYPE_UCHAR))
+						if(t->basetype == ARG_TYPE_PTR && !argsize && !argsize_size && !t->size_name && t->basetype_ref && (t->basetype_ref->basetype == ARG_TYPE_CHAR || t->basetype_ref->basetype == ARG_TYPE_UCHAR))
 							a |= ARG_TYPE_STR;
-						else if(t->basetype == ARG_TYPE_PTR && !argsize && !t->size_name && t->basetype_ref && t->basetype_ref->basetype == ARG_TYPE_WCHAR)
+						else if(t->basetype == ARG_TYPE_PTR && !argsize && !argsize_size && !t->size_name && t->basetype_ref && t->basetype_ref->basetype == ARG_TYPE_WCHAR)
 							a |= ARG_TYPE_WSTR;
 						else if(t->basetype == ARG_TYPE_PTR)
 						{
@@ -1560,6 +1576,7 @@ parse_handlearg:
 								current_arg_spec->type = a;
 								current_arg_spec->arg_name = NULL;
 								current_arg_spec->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
+								current_arg_spec->deref_len = (argtypep)1;
 								logPrintf("adding deref for pointer: %p %p\n", current_arg_spec, current_arg_spec->deref);
 								current_arg_spec = current_arg_spec->deref;
 								current_arg_spec->deref = NULL;
@@ -1600,7 +1617,7 @@ parse_handlearg:
 							current_arg_spec->index = RESOLVE_LEN_NAME;
 						}
 						else if(argsize_size)
-							current_arg_spec->deref_len = (argtypep)argsize;
+							current_arg_spec->deref_len = (argtypep)argsize_size;
 						else if(t->size_name)
 						{
 							argsize = (char *)malloc_0(strlen_0(t->size_name) + 1);
@@ -1742,7 +1759,11 @@ parse_handlearg:
 									current_arg_spec->arg_name = NULL;
 									current_arg_spec->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
 									logPrintf("adding deref for pointer: %p %p\n", current_arg_spec, current_arg_spec->deref);
+									/* FIXME FIXME FIXME This makes no sense and why is it different from the above handler here... 
+									 * why set the size here if it's just a pointer ?!?! Does something use this ? */
 									current_arg_spec->size = size_of_type(t->basetype_ref);
+									/* Because there's one pointer if no length is specified */
+									current_arg_spec->deref_len = (argtypep)1;
 									logPrintf("nested assigning pointer with basetype ref %p a size of %d\n", t->basetype_ref, current_arg_spec->size);
 									// FIXME FIXME derefs but what about more sizes ?
 									current_arg_spec = current_arg_spec->deref;
@@ -1799,7 +1820,7 @@ parse_handlearg:
 							current_arg_spec->index = RESOLVE_LEN_NAME;
 						}
 						else if(argsize_size)
-							current_arg_spec->deref_len = (argtypep)argsize;
+							current_arg_spec->deref_len = (argtypep)argsize_size;
 						else if(t->size_name)
 						{
 							argsize = (char *)malloc_0(strlen_0(t->size_name) + 1);
