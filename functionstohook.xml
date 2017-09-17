@@ -4,6 +4,10 @@
 <value name="INVALID_SOCKET" value="0xffffffff"/>
 <type name="SOCKET" type="uint32_t"/>
 <type name="char *" type="pointer" basetype="char"/>
+<type name="char*" type="char *"/>
+<type name="unsigned char *" type="pointer" basetype="unsigned char"/>
+<type name="unsigned char*" type="pointer" basetype="unsigned char"/>
+<type name="uint32_t*" type="pointer" basetype="uint32_t"/>
 <type name="wchar_t *" type="pointer" basetype="wchar_t"/>
 <type name="char[6]" type="array" basetype="char"/>
 <type name="struct sockaddr_in" type="struct">
@@ -21,6 +25,11 @@
 		<element name="next" type="pointer" basetype="test_struct"/>
 	</element>
 </type>
+<type name="WSABUF" type="struct">
+	<element name="len" type="uint32_t"/>
+	<element name="buf" type="char*" size="len"/>
+</type>
+<type name="LPWSABUF" type="pointer" basetype="WSABUF"/>
 <!-- do WSA functions just call the other send/connect/etc., functions? -->
 <lib name="kernel32.dll">
 	<!-- experimental scoping -->
@@ -44,6 +53,14 @@
 	<function name="ExitProcess">
 		<return type="uint32_t"/>
 	</function>
+	<function name="LoadLibraryA" posthook="llhook">
+		<arg type="char *"/>
+		<return type="HANDLE"/>
+	</function>
+	<function name="LoadLibraryW" posthook="llhook">
+		<arg type="wchar_t *"/>
+		<return type="HANDLE"/>
+	</function>
 </lib>
 <function lib="ws2_32.dll" name="connect" ordinal="4">
 	<arg name="socket" type="SOCKET"/>
@@ -64,20 +81,42 @@
 	<return type="SOCKET"/>
 	<success return="notequal" value="INVALID_SOCKET"/>
 </function>
-<function lib="ws2_32.dll" name="send" ordinal="19">
+<function lib="ws2_32.dll;wsock32.dll" name="send" ordinal="19">
 	<arg name="socket" type="SOCKET"/>
 	<arg name="buffer" type="char *" size="len"/>
 	<arg name="len" type="uint32_t"/>
 	<return type="uint32_t"/>
 	<success return="notequal" value="SOCKET_ERROR"/>
 </function>
-<function lib="ws2_32.dll" name="recv" ordinal="16">
+<function lib="ws2_32.dll" name="WSASend" ordinal="0x60">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="buffer" type="LPWSABUF" size="dwBufferCount">
+		<element name="len"/>
+		<element name="buf"/>
+	</arg>
+	<arg name="dwBufferCount" type="uint32_t"/>
+	<!-- bytes sent, flags, overlapped, completion routine -->
+	<return type="uint32_t"/>
+	<success return="notequal" value="SOCKET_ERROR"/>
+</function>
+<function lib="ws2_32.dll;wsock32.dll" name="recv" ordinal="16">
 	<arg name="socket" type="SOCKET"/>
 	<arg name="buffer" type="char *" precall="false" postcall="true" size="return"/>
 	<arg name="len" type="uint32_t"/>
 	<return type="uint32_t"/>
 	<success return="notequal" value="SOCKET_ERROR"/>
 </function>
+<!-- <function lib="ws2_32.dll" name="WSARecv" ordinal="0x5b">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="buffer" type="LPWSABUF" precall="false" postcall="true" size="dwBufferCount">
+		<element name="len"/>
+		<element name="buf"/>
+	</arg>
+	<arg name="dwBufferCount" type="uint32_t" precall="true"/>
+	<!-- <arg name="lpNumberOfBytesRecvd" type="uint32_t*" postcall="true"/> -->
+<!--	<return type="uint32_t"/>
+	<success return="notequal" value="SOCKET_ERROR"/>
+</function>-->
 <function lib="ws2_32.dll" name="socket" ordinal="23">
 	<return type="SOCKET"/>
 </function>
@@ -85,3 +124,331 @@
 	<arg name="socket" type="SOCKET"/>
 	<return type="uint32_t"/>
 </function>
+<lib name="winsock32.dll">
+<function name="connect" ordinal="4">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="name" type="struct sockaddr_in *">
+		<element name="sin_port"/>
+		<element name="sin_addr"/>
+	</arg>
+	<arg name="namelen" type="int32_t" log="0"/>
+	<return type="uint32_t"/>
+	<success return="equal" value="0"/>
+</function>
+<function name="accept" ordinal="1">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="name" type="struct sockaddr_in *">
+		<element name="sin_port" precall="false" postcall="true"/>
+		<element name="sin_addr" precall="false" postcall="true"/>
+	</arg>
+	<return type="SOCKET"/>
+	<success return="notequal" value="INVALID_SOCKET"/>
+</function>
+<function name="send" ordinal="19">
+	<arg name="socket" type="SOCKET"/>
+	<arg name="buffer" type="char *" size="len"/>
+	<arg name="len" type="uint32_t"/>
+	<return type="uint32_t"/>
+	<success return="notequal" value="SOCKET_ERROR"/>
+</function>
+<function name="socket" ordinal="23">
+	<return type="SOCKET"/>
+</function>
+<function name="closesocket" ordinal="3">
+	<arg name="socket" type="SOCKET"/>
+	<return type="uint32_t"/>
+</function>
+</lib>
+<lib name="libeay32.dll">
+	<type name="int" type="uint32_t"/>
+	<type name="size_t" type="uint32_t"/>
+	<type name="int*" type="pointer" basetype="int"/>
+	<type name="void*" type="void *"/>
+	<type name="PVOID" type="pointer" basetype="char"/>
+	<type name="unsigned long" type="uint32_t"/>
+	<type Name="SHA_CTX*" Type="Pointer" basetype="PVOID" />
+	<type name="EVP_CIPHER" type="struct">
+		<element type="int"    name="nid"/>
+		<element type="int"    name="block_size"/>
+		<element type="int"    name="key_len"/>
+		<element type="int"    name="iv_len"/>
+		<element type="unsigned long"    name="flags"/>
+	</type>
+	<type name="EVP_CIPHER*" type="pointer" basetype="EVP_CIPHER" />
+	<type name="EVP_CIPHER_CTX" type="struct">
+		<element type="EVP_CIPHER*"    name="cipher"/>
+		<element type="uint32_t"    name="Unknown2"/>
+	</type>
+	<type name="EVP_CIPHER_CTX*" type="pointer" basetype="EVP_CIPHER_CTX" />
+	<type name="ENGINE*" type="pointer" basetype="uint32_t" />
+	<function name="EVP_EncryptInit_ex" ordinal="2894">
+		<arg type="EVP_CIPHER_CTX*" name="ctx">
+			<element type="EVP_CIPHER*">
+				<element type="int"    name="key_len"/>
+				<element type="int"    name="iv_len"/>
+			</element>
+		</arg>
+		<arg type="EVP_CIPHER*" name="type" log="false"/>
+		<arg type="ENGINE*" name="impl" />
+		<arg type="unsigned char*" name="key" size="key_len"/>
+		<arg type="unsigned char*" name="iv" size="iv_len"/>
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="EVP_EncryptUpdate" ordinal="276">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="out" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<arg type="unsigned char*" name="in" size="inl"/>
+		<arg type="int" name="inl" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="EVP_EncryptFinal_ex" ordinal="2660">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="out" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="EVP_DecryptInit_ex" ordinal="3067">
+		<arg type="EVP_CIPHER_CTX*" name="ctx">
+			<element type="EVP_CIPHER*">
+				<element type="int"    name="key_len"/>
+				<element type="int"    name="iv_len"/>
+			</element>
+		</arg>
+		<arg type="EVP_CIPHER*" name="type" log="false"/>
+		<arg type="ENGINE*" name="impl" />
+		<arg type="unsigned char*" name="key" size="key_len"/>
+		<arg type="unsigned char*" name="iv" size="iv_len"/>
+		<return type="int" />
+		<success return="equal" value="1" />
+	</function>
+	<!--<function name="EVP_DecryptUpdate" ordinal="266">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="out" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<arg type="unsigned char*" name="in" size="inl"/>
+		<arg type="int" name="inl" />
+		<return type="int" />
+		<success return="equal" value="1" />
+	</function>-->
+	<function name="EVP_DecryptFinal_ex" ordinal="2656">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="outm" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<return type="int" />
+		<success return="equal" value="1" />
+	</function>
+	<function name="SHA256_Init" ordinal="3479">
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA256_Update" ordinal="3765">
+		<arg type="SHA_CTX*" name="c" />
+		<arg type="char*" name="data" size="len"/>
+		<arg type="size_t" name="len" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA256_Final" ordinal="3712">
+		<arg type="unsigned char*" name="md" size="0x20"/>
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<!-- It thinks the PVOID is a string because I define it as a char * and there's no length... FIXME -->
+	<function name="EVP_aes_128_cbc"><!-- ordinal="0">-->
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_128_ecb" ordinal="2644">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_192_ecb" ordinal="2862">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_256_ecb" ordinal="2720">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_256_cbc" ordinal="2996">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_md5" ordinal="323">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="HMAC" ordinal="962">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="SHA" ordinal="500">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="SHA1_Init" ordinal="503">
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA1_Update" ordinal="504">
+		<arg type="SHA_CTX*" name="c" />
+		<arg type="void*" name="data" size="len"/>
+		<arg type="size_t" name="len" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA1_Final" ordinal="502">
+		<arg type="unsigned char*" name="md" size="20"/>
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+</lib>
+<lib name="libcrypto-1_1.dll">
+	<type name="int" type="uint32_t"/>
+	<type name="size_t" type="uint32_t"/>
+	<type name="int*" type="pointer" basetype="int"/>
+	<type name="void*" type="void *"/>
+	<type name="PVOID" type="pointer" basetype="char"/>
+	<type name="unsigned long" type="uint32_t"/>
+	<type Name="SHA_CTX*" Type="Pointer" basetype="PVOID" />
+	<type name="EVP_CIPHER" type="struct">
+		<element type="int"    name="nid"/>
+		<element type="int"    name="block_size"/>
+		<element type="int"    name="key_len"/>
+		<element type="int"    name="iv_len"/>
+		<element type="unsigned long"    name="flags"/>
+	</type>
+	<type name="EVP_CIPHER*" type="pointer" basetype="EVP_CIPHER" />
+	<type name="EVP_CIPHER_CTX" type="struct">
+		<element type="EVP_CIPHER*"    name="cipher"/>
+		<element type="uint32_t"    name="Unknown2"/>
+	</type>
+	<type name="EVP_CIPHER_CTX*" type="pointer" basetype="EVP_CIPHER_CTX" />
+	<type name="ENGINE*" type="pointer" basetype="uint32_t" />
+	<function name="EVP_EncryptInit_ex" ordinal="0x610">
+		<arg type="EVP_CIPHER_CTX*" name="ctx">
+			<element type="EVP_CIPHER*">
+				<element type="int"    name = "key_len" instance_name="c_key_len"/>
+				<element type="int"    name = "iv_len" instance_name="c_iv_len"/>
+			</element>
+		</arg>
+		<arg type="EVP_CIPHER*" name="type">
+			<element type="int"    name="key_len"/>
+			<element type="int"    name="iv_len"/>
+		</arg>
+		<arg type="ENGINE*" name="impl" />
+		<arg type="unsigned char*" name="key" size="key_len" fallback_size="c_key_len"/>
+		<arg type="unsigned char*" name="iv" size="iv_len" fallback_size="c_iv_len"/>
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="EVP_EncryptUpdate" ordinal="0x611">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="out" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<arg type="unsigned char*" name="in" size="inl"/>
+		<arg type="int" name="inl" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="EVP_EncryptFinal_ex" ordinal="0x60e">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="out" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="EVP_DecryptInit_ex" ordinal="0x5f9">
+		<arg type="EVP_CIPHER_CTX*" name="ctx">
+			<element type="EVP_CIPHER*">
+				<element type="int"    name = "key_len" instance_name="c_key_len"/>
+				<element type="int"    name = "iv_len" instance_name="c_iv_len"/>
+			</element>
+		</arg>
+		<arg type="EVP_CIPHER*" name="type">
+			<element type="int"    name="key_len"/>
+			<element type="int"    name="iv_len"/>
+		</arg>
+		<arg type="ENGINE*" name="impl" />
+		<arg type="unsigned char*" name="key" size="key_len" fallback_size="c_key_len"/>
+		<arg type="unsigned char*" name="iv" size="iv_len" fallback_size="c_iv_len"/>
+		<return type="int" />
+		<success return="equal" value="1" />
+	</function>
+	<!--<function name="EVP_DecryptUpdate" ordinal="0x5fa">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="out" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<arg type="unsigned char*" name="in" size="inl"/>
+		<arg type="int" name="inl" />
+		<return type="int" />
+		<success return="equal" value="1" />
+	</function>-->
+	<function name="EVP_DecryptFinal_ex" ordinal="0x5f7">
+		<arg type="EVP_CIPHER_CTX*" name="ctx" />
+		<arg type="unsigned char*" name="outm" size="outl" postcall="true"/>
+		<arg type="int*" name="outl" postcall="true"/>
+		<return type="int" />
+		<success return="equal" value="1" />
+	</function>
+	<function name="SHA256_Init" ordinal="0xabf">
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA256_Update" ordinal="0xac1">
+		<arg type="SHA_CTX*" name="c" />
+		<arg type="char*" name="data" size="len"/>
+		<arg type="size_t" name="len" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA256_Final" ordinal="0xabe">
+		<arg type="unsigned char*" name="md" size="0x20"/>
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="EVP_aes_128_cbc" ordinal="0x6d9">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_128_ecb" ordinal="0x6e1">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_192_ecb" ordinal="0x6ee">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_256_ecb" ordinal="0x6fc">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_aes_256_cbc" ordinal="0x6f4">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="EVP_md5" ordinal="0x741">
+		<return type="PVOID" log="false"/>
+	</function>
+	<function name="HMAC" ordinal="0x771">
+		<return type="PVOID" log="false"/>
+	</function>
+	<!--<function name="SHA" ordinal="500">
+		<return type="PVOID" log="false"/>
+	</function>-->
+	<function name="SHA1_Init" ordinal="0xab6">
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA1_Update" ordinal="0xab8">
+		<arg type="SHA_CTX*" name="c" />
+		<arg type="void*" name="data" size="len"/>
+		<arg type="size_t" name="len" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+	<function name="SHA1_Final" ordinal="0xab5">
+		<arg type="unsigned char*" name="md" size="20"/>
+		<arg type="SHA_CTX*" name="c" />
+		<return type="int" />
+		<success return="Equal" Value="1" />
+	</function>
+</lib>
