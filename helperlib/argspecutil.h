@@ -51,6 +51,7 @@ typedef struct arg_spec
 #define SIZEORPOINTERLIMIT		0x10000
 
 void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec * q);
+int arg_spec_contains(struct arg_spec * c, struct arg_spec * i);
 void zero_val_vals(struct arg_spec * a);
 struct arg_spec * deref_end(struct arg_spec * s);
 struct arg_spec * get_container_by_deref(struct arg_spec * cont, struct arg_spec * s, struct arg_spec * e);

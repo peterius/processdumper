@@ -102,7 +102,6 @@ void add_signed_value(char * name, svalue_t value);
 void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i);
 struct arg_spec * find_deref_len(struct arg_spec * j, char * deref_len_name);
 void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, struct arg_spec * j);
-int arg_spec_contains(struct arg_spec * c, struct arg_spec * i);
 void verify_arg_spec_chain(struct arg_spec * a);
 int parse(char * data, unsigned int size);
 void xmldebugPrint(char * d, int s);
@@ -654,27 +653,6 @@ void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, stru
 		d = d->next_spec;
 	}
 	return;
-}
-
-int arg_spec_contains(struct arg_spec * c, struct arg_spec * i)
-{
-	int ret;
-	if(c == i)
-		return 1;
-	c = c->deref;
-	while(c)
-	{
-		if(c == i)
-			return 1;
-		else if(c->deref)
-		{
-			ret = arg_spec_contains(c->deref, i);
-			if(ret)
-				return 1;
-		}
-		c = c->next_spec;
-	}
-	return 0;
 }
 
 void verify_arg_spec_chain(struct arg_spec * a)

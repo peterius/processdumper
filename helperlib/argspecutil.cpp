@@ -48,6 +48,27 @@ void insert_arg_spec(struct arg_spec * a, struct arg_spec * r, struct arg_spec *
 	}
 }
 
+int arg_spec_contains(struct arg_spec * c, struct arg_spec * i)
+{
+	int ret;
+	if(c == i)
+		return 1;
+	c = c->deref;
+	while(c)
+	{
+		if(c == i)
+			return 1;
+		else if(c->deref)
+		{
+			ret = arg_spec_contains(c->deref, i);
+			if(ret)
+				return 1;
+		}
+		c = c->next_spec;
+	}
+	return 0;
+}
+
 void zero_val_vals(struct arg_spec * a)
 {
 	while(a)
