@@ -565,7 +565,7 @@ void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i =
 			}
 			if(i->deref_fallback_len > (argtypep)SIZEORPOINTERLIMIT)
 			{
-				logPrintf("fflh needs %s... looking for %s\n", i->arg_name, (char *)i->deref_fallback_len);
+				logPrintf("fflh needs fallback %s... looking for %s\n", i->arg_name, (char *)i->deref_fallback_len);
 				if((j = find_deref_len(hfstruct->arg, (char *)i->deref_fallback_len)))
 				{
 					if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
@@ -1424,7 +1424,7 @@ parse_handlearg:
 							return -1;
 						}
 					}
-					if(strnicmp_0(d, "instance_name", 4) == 0)
+					else if(strnicmp_0(d, "instance_name", 4) == 0)
 					{
 						i = countto(d, '=');
 						d += i + 1;
@@ -1641,6 +1641,8 @@ parse_handlearg:
 								/* Not really right on the type but let's see what it does and I can fix it later.*/
 								current_arg_spec->type = a;
 								current_arg_spec->arg_name = NULL;
+								current_arg_spec->val_val = 0;
+								current_arg_spec->index = 0;
 								current_arg_spec->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
 								current_arg_spec->deref_len = (argtypep)1;
 								current_arg_spec->deref_fallback_len = NULL;
@@ -1668,7 +1670,8 @@ parse_handlearg:
 						
 						if(instance_name)
 						{
-							free_0(argname);
+							if(argname)
+								free_0(argname);
 							current_arg_spec->arg_name = instance_name;
 							instance_name = NULL;
 						}
@@ -1712,6 +1715,8 @@ parse_handlearg:
 						}
 						else if(fallbacksize_size)
 							current_arg_spec->deref_fallback_len = (argtypep)fallbacksize_size;
+						else
+							current_arg_spec->deref_fallback_len = NULL;
 						argsize = NULL;
 						argsize_size = 0;
 						fallbacksize_size = 0;
@@ -1840,6 +1845,8 @@ parse_handlearg:
 									/* Not really right on the type but let's see what it does and I can fix it later.*/
 									current_arg_spec->type = a;
 									current_arg_spec->arg_name = NULL;
+									current_arg_spec->val_val = 0;
+									current_arg_spec->index = 0;
 									current_arg_spec->deref = (struct arg_spec *)malloc_0(sizeof(struct arg_spec));
 									logPrintf("adding deref for pointer: %p %p\n", current_arg_spec, current_arg_spec->deref);
 									/* FIXME FIXME FIXME This makes no sense and why is it different from the above handler here... 
@@ -1925,6 +1932,8 @@ parse_handlearg:
 						}
 						else if(fallbacksize_size)
 							current_arg_spec->deref_fallback_len = (argtypep)fallbacksize_size;
+						else
+							current_arg_spec->deref_fallback_len = NULL;
 
 						argsize = NULL;
 						argsize_size = 0;
