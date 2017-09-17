@@ -36,13 +36,13 @@ uint16_t setup_local_socket(void)
 	DWORD thread_id;
 
 	memset(&wsaData, 0, sizeof(WSADATA));
-	printf("so....\n");
+
 	int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if(iResult != NO_ERROR) {
 		wprintf(L"WSAStartup failed with error: %ld\n", iResult);
 		return 1;
 	}
-	printf("The fuck\n");
+
 	ListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if(ListenSocket == INVALID_SOCKET) {
 		wprintf(L"socket failed with error: %ld\n", WSAGetLastError());
