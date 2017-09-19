@@ -229,7 +229,9 @@ void enter_scope(struct scope * scope)
 		logPrintf("XML parse ERROR: enter scope realloc failure\n");
 		return;
 	}
+#ifdef DEBUG
 	logPrintf("Entering scope %p with %d %d\n", scope, scope->type_definitions, scope->values);
+#endif //DEBUG
 	scope_stack[scope_stack_size - 1] = scope;
 }
 
@@ -311,14 +313,18 @@ struct type_def * lookup_type(char * name, bool cur_scope=false)
 {
 	unsigned int scope_check_index = scope_stack_size - 1;
 	unsigned int i;
+#ifdef DEBUG
 	logPrintf("lookuptype %s\n", name);
+#endif //DEBUG
 	for(;;)
 	{
 		for(i = 0; i < scope_stack[scope_check_index]->type_definitions; i++)
 		{
 			if(!scope_stack[scope_check_index]->type_definition[i])
 				continue;
+#ifdef DEBUG
 			logPrintf("\t\t%s\n", scope_stack[scope_check_index]->type_definition[i]->name);
+#endif //DEBUG
 			if(scope_stack[scope_check_index]->type_definition[i]->name && strcmp_0(name, scope_stack[scope_check_index]->type_definition[i]->name) == 0)
 			{
 				return scope_stack[scope_check_index]->type_definition[i];
@@ -372,7 +378,9 @@ struct type_def * add_type(char * name, char * basetypename, bool isptr, bool lo
 		{
 			type_def->basetype = ARG_TYPE_PTR;
 			type_def->basetype_ref = looked_up_type_def;
+#ifdef DEBUG
 			logPrintf("adding pointer to %d\n", type_def->basetype_ref->basetype);
+#endif //DEBUG
 		}
 		// not going to worry about arrays in nested structure types for now because of the sizes FIXME
 		// FIXME basically we need a special basetype for PTR and ARRAY... 
@@ -390,7 +398,9 @@ struct type_def * add_type(char * name, char * basetypename, bool isptr, bool lo
 				type_def->basetype_ref = NULL;
 			}
 		}
+#ifdef DEBUG
 		logPrintf("Adding %s with offset %d\n", type_def->name, type_def->offset);
+#endif //DEBUG
 		return type_def;
 	}
 	return NULL;
@@ -546,7 +556,9 @@ void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i =
 		{
 			if(i->deref_len > (argtypep)SIZEORPOINTERLIMIT)
 			{
+#ifdef DEBUG
 				logPrintf("fflh needs %s... looking for %s\n", i->arg_name, (char *)i->deref_len);
+#endif //DEBUG
 				if((j = find_deref_len(hfstruct->arg, (char *)i->deref_len)))
 				{
 					if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
@@ -559,12 +571,16 @@ void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i =
 					i->deref_len = j;
 					if(i->deref_fallback_len <= (argtypep)SIZEORPOINTERLIMIT)
 						i->index = LEN_NAME_RESOLVED;
+#ifdef DEBUG
 					logPrintf("assigning %s len %s\n", i->arg_name, j->arg_name);
+#endif //DEBUG
 				}
 			}
 			if(i->deref_fallback_len > (argtypep)SIZEORPOINTERLIMIT)
 			{
+#ifdef DEBUG
 				logPrintf("fflh needs fallback %s... looking for %s\n", i->arg_name, (char *)i->deref_fallback_len);
+#endif //DEBUG
 				if((j = find_deref_len(hfstruct->arg, (char *)i->deref_fallback_len)))
 				{
 					if((i->type & ARGSPECOFPOSTCALLINTEREST) != (j->type & ARGSPECOFPOSTCALLINTEREST) || (i->type & ARGSPECOFPRECALLINTEREST) != (j->type & ARGSPECOFPRECALLINTEREST))
@@ -576,7 +592,9 @@ void fixup_function_lengths(struct hooked_func * hfstruct, struct arg_spec * i =
 					free_0(i->deref_fallback_len);				//this is the name string for the reference
 					i->deref_fallback_len = j;
 					i->index = LEN_NAME_RESOLVED;
+#ifdef DEBUG
 					logPrintf("assigning %s fallback len %s\n", i->arg_name, j->arg_name);
+#endif //DEBUG
 				}
 			}
 			if(i->index != LEN_NAME_RESOLVED)
@@ -618,17 +636,25 @@ void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, stru
 	struct arg_spec * cont;
 
 	cont = get_container_by_deref(NULL, hfstruct->arg, j);
+#ifdef DEBUG
 	logPrintf("%p within %p\n", j, cont);
+#endif //DEBUG
 	while(cont)
 	{
+#ifdef DEBUG
 		logPrintf("cont\n");
+#endif //DEBUG
 		d = cont->deref;
 		while(d)
 		{
+#ifdef DEBUG
 			logPrintf("checking %p %s for %s\n", d, d->arg_name, i->arg_name);
+#endif //DEBUG
 			if(arg_spec_contains(d, i))
 			{
+#ifdef DEBUG
 				logPrintf("okay\n");
+#endif //DEBUG
 				insert_arg_spec(cont, d, j);
 				return;
 			}
@@ -636,17 +662,25 @@ void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, stru
 		}
 		j = cont;
 		cont = get_container_by_deref(NULL, hfstruct->arg, j);
+#ifdef DEBUG
 		logPrintf("stepping up maybe to %p\n", cont);
 		logPrintf("%p within %p\n", j, cont);
+#endif //DEBUG
 	}
+#ifdef DEBUG
 	logPrintf("no cont\n");
+#endif //DEBUG
 	d = hfstruct->arg;
 	while(d)
 	{
+#ifdef DEBUG
 		logPrintf("checking %p %s for %s\n", d, d->arg_name, i->arg_name);
+#endif //DEBUG
 		if(arg_spec_contains(d, i))
 		{
+#ifdef DEBUG
 			logPrintf("okay\n");
+#endif //DEBUG
 			insert_arg_spec(hfstruct->arg, d, j);
 			return;
 		}
@@ -657,6 +691,7 @@ void reorder_for_length(struct hooked_func * hfstruct, struct arg_spec * i, stru
 
 void verify_arg_spec_chain(struct arg_spec * a)
 {
+#ifdef DEBUG
 	while(a)
 	{
 		logPrintf("as: %p %s\n", a, a->arg_name); 
@@ -668,6 +703,7 @@ void verify_arg_spec_chain(struct arg_spec * a)
 		}
 		a = a->next_spec;
 	}
+#endif //DEBUG
 }
 
 int loadxmlhookfile(void)
@@ -2095,9 +2131,11 @@ int wstrcmp(char * a, char * b)
 
 void xmldebugPrint(char * d, int s)
 {
+#ifdef DEBUG
 	for(int g = 0; g < s; g++)
 		logPrintf("%c", *(d + g));
 	logPrintf("\n");
+#endif //DEBUG
 }
 
 // if the xml file is garbage, just let it go down, no size checks
